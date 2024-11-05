@@ -1,0 +1,33 @@
+flowchart TD
+    subgraph Client
+        UI[React Frontend]
+        State[State Management]
+        UI --> State
+    end
+
+    subgraph Server
+        API[Node.js API]
+        Auth[Authentication]
+        Cache[Redis Cache]
+        API --> Auth
+        API --> Cache
+    end
+
+    subgraph Database
+        DB[(PostgreSQL)]
+        Analytics[(Analytics DB)]
+    end
+
+    subgraph External
+        Scholar[Scholar APIs]
+        CrossRef[CrossRef API]
+        ORCID[ORCID API]
+    end
+
+    UI --> API
+    API --> DB
+    API --> Analytics
+    API --> Scholar
+    API --> CrossRef
+    API --> ORCID
+    Cache --> DB
