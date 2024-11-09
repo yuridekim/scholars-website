@@ -1,37 +1,59 @@
-// src/app/people/page.tsx
+// src/app/scholars/page.tsx
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
-export default function PeoplePage() {
+interface Scholar {
+  id: number
+  name: string
+  department: string
+}
+
+export default function ScholarsPage() {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
-  
-  // Example data - replace with your actual data source
-  const people = [
-    { id: 1, name: 'John Doe', department: 'Computer Science' },
-    { id: 2, name: 'Jane Smith', department: 'Physics' },
-    // ... more people
-  ]
+  const [scholars, setScholars] = useState<Scholar[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const handlePersonClick = (id: number) => {
-    router.push(`/people/${id}`)
+  useEffect(() => {
+    fetch('/api/scholars')
+      .then(res => res.json())
+      .then(data => {
+        setScholars(data)
+        setLoading(false)
+      })
+      .catch(error => {
+        console.error('Error fetching scholars:', error)
+        setLoading(false)
+      })
+  }, [])
+
+  const handleScholarClick = (id: number) => {
+    router.push(`/scholars/${id}`)
+  }
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="text-center">Loading...</div>
+      </div>
+    )
   }
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">People Directory</h1>
+      <h1 className="text-2xl font-bold mb-4">Scholars Directory</h1>  // updated title
       
       {/* Search Input */}
       <input
         type="text"
-        placeholder="Search people..."
+        placeholder="Search scholars..."  // updated placeholder
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         className="w-full p-2 border rounded mb-4"
       />
 
-      {/* People Table */}
+      {/* Scholars Table */}
       <table className="w-full border-collapse">
         <thead>
           <tr>
@@ -40,18 +62,18 @@ export default function PeoplePage() {
           </tr>
         </thead>
         <tbody>
-          {people
-            .filter(person => 
-              person.name.toLowerCase().includes(searchQuery.toLowerCase())
+          {scholars
+            .filter(scholar => 
+              scholar.name.toLowerCase().includes(searchQuery.toLowerCase())
             )
-            .map(person => (
+            .map(scholar => (
               <tr 
-                key={person.id}
-                onClick={() => handlePersonClick(person.id)}
+                key={scholar.id}
+                onClick={() => handleScholarClick(scholar.id)}
                 className="hover:bg-gray-100 cursor-pointer"
               >
-                <td className="border p-2">{person.name}</td>
-                <td className="border p-2">{person.department}</td>
+                <td className="border p-2">{scholar.name}</td>
+                <td className="border p-2">{scholar.department}</td>
               </tr>
             ))}
         </tbody>

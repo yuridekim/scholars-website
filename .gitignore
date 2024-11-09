@@ -1,31 +1,57 @@
 # Dependencies
-node_modules/
+node_modules
 .pnp
 .pnp.js
 
 # Testing
-coverage/
+coverage
 
-# Production
-build/
-dist/
+# Next.js
 .next/
+out/
+build
+dist
 
-# Misc
-.DS_Store
+# Environment Variables
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env*.local
+.env.development
+.env.test
+.env.production
 
-# Debug logs
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Prisma
+prisma/*.db
+prisma/migrations/
+
+# IDE
+.idea
+.vscode/*
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Logs
+logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
+# OS
+.DS_Store
+*.pem
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Misc
+.vercel
+.env*.local
