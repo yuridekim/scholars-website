@@ -1,34 +1,24 @@
 // client/src/app/scholars/[id]/page.tsx
 'use client'
-import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
 
-interface Scholar {
-  id: number
-  name: string
-  department: string
-}
+import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { Scholar, GoogleScholarPub, PubmedPub } from '@/lib/types'
 
-export default function ScholarDetailPage() {
-  const params = useParams()
+export default function ScholarDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const [scholar, setScholar] = useState<Scholar | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetch(`/api/scholars/${params.id}`)
-      .then(res => {
-        if (!res.ok) throw new Error('Scholar not found')
-        return res.json()
-      })
-      .then(data => {
+      .then((res) => res.json())
+      .then((data: Scholar) => {
         setScholar(data)
         setLoading(false)
       })
-      .catch(error => {
-        setError(error.message)
+      .catch((error) => {
+        console.error('Error fetching scholar:', error)
         setLoading(false)
       })
   }, [params.id])
@@ -43,23 +33,18 @@ export default function ScholarDetailPage() {
     )
   }
 
-  if (error || !scholar) {
+  if (!scholar) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-2xl mx-auto mt-8">
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm text-red-700">
-                  Error: {error || 'Scholar not found'}
-                </p>
-              </div>
-            </div>
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-white rounded-lg shadow p-6">
+            <h1 className="text-2xl font-bold text-red-600">Scholar not found</h1>
+            <button
+              onClick={() => router.push('/scholars')}
+              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Back to Scholars
+            </button>
           </div>
         </div>
       </div>
@@ -67,40 +52,122 @@ export default function ScholarDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto p-6">
-        <button
-          onClick={() => router.back()}
-          className="flex items-center text-gray-600 hover:text-gray-900 mb-6 transition-colors"
-        >
-          <ArrowLeft className="h-5 w-5 mr-2" />
-          Back to Scholars
-        </button>
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-3xl font-bold">{scholar.name}</h1>
+          <button
+            onClick={() => router.push('/scholars')}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Back to Scholars
+          </button>
+        </div>
 
-        <div className="bg-white shadow-lg rounded-lg overflow-hidden">
-          <div className="bg-gray-900 text-white p-6">
-            <h1 className="text-3xl font-bold">{scholar.name}</h1>
-            <p className="text-gray-300 mt-2">{scholar.department}</p>
-          </div>
-
+        <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Department</h3>
-                  <p className="mt-1 text-lg text-gray-900">{scholar.department}</p>
-                </div>
-                {/* Add more fields as needed */}
+              <div>
+                <h2 className="text-xl font-semibold mb-4">Profile Information</h2>
+                <dl className="space-y-2">
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Affiliation</dt>
+                    <dd className="text-sm text-gray-900">{scholar.affiliation || 'N/A'}</dd>
+                  </div>
+                  {scholar.emailDomain && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Email Domain</dt>
+                      <dd className="text-sm text-gray-900">{scholar.emailDomain}</dd>
+                    </div>
+                  )}
+                  {scholar.homepage && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Homepage</dt>
+                      <dd className="text-sm text-gray-900">
+                        <a
+                          href={scholar.homepage}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline"
+                        >
+                          {scholar.homepage}
+                        </a>
+                      </dd>
+                    </div>
+                  )}
+                </dl>
               </div>
 
-              <div className="space-y-4">
-                {/* Additional information can go here */}
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Scholar ID</h3>
-                  <p className="mt-1 text-lg text-gray-900">#{scholar.id}</p>
-                </div>
+              <div>
+                <h2 className="text-xl font-semibold mb-4">Metrics</h2>
+                <dl className="space-y-2">
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Citations</dt>
+                    <dd className="text-sm text-gray-900">
+                      {scholar.citedby || 0}
+                      {scholar.citedby5y && (
+                        <span className="text-gray-500 ml-2">
+                          (Last 5 years: {scholar.citedby5y})
+                        </span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">h-index</dt>
+                    <dd className="text-sm text-gray-900">
+                      {scholar.hindex || 0}
+                      {scholar.hindex5y && (
+                        <span className="text-gray-500 ml-2">
+                          (Last 5 years: {scholar.hindex5y})
+                        </span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">i10-index</dt>
+                    <dd className="text-sm text-gray-900">
+                      {scholar.i10index || 0}
+                      {scholar.i10index5y && (
+                        <span className="text-gray-500 ml-2">
+                          (Last 5 years: {scholar.i10index5y})
+                        </span>
+                      )}
+                    </dd>
+                  </div>
+                </dl>
               </div>
             </div>
+
+            {scholar.interests && (
+              <div className="mt-6">
+                <h2 className="text-xl font-semibold mb-4">Research Interests</h2>
+                <p className="text-sm text-gray-900">{scholar.interests}</p>
+              </div>
+            )}
+
+            {scholar.googleScholarPubs && scholar.googleScholarPubs.length > 0 && (
+              <div className="mt-6">
+                <h2 className="text-xl font-semibold mb-4">Recent Publications</h2>
+                <div className="space-y-4">
+                  {scholar.googleScholarPubs.map((pub) => (
+                    <div key={pub.id} className="border-b pb-4">
+                      <h3 className="text-lg font-medium text-gray-900">{pub.title}</h3>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {pub.author} ({pub.pubYear})
+                      </p>
+                      {pub.journal && (
+                        <p className="text-sm text-gray-500 mt-1">{pub.journal}</p>
+                      )}
+                      {pub.numCitations !== undefined && (
+                        <p className="text-sm text-gray-500 mt-1">
+                          Citations: {pub.numCitations}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

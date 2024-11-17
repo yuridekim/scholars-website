@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -14,7 +8,68 @@ datasource db {
 }
 
 model Scholar {
-  id         Int      @id @default(autoincrement())
-  name       String
-  department String
+  id                    Int       @id @default(autoincrement())
+  name                  String
+  emailDomain          String?   @map("email_domain")
+  affiliation          String?
+  scholarId            String?   @unique @map("scholar_id")
+  citedby              Int?
+  citedby5y            Int?
+  hindex               Int?
+  hindex5y             Int?
+  i10index             Int?
+  i10index5y           Int?
+  totalPub             Int?      @map("total_pub")
+  interests            String?
+  homepage             String?
+  fullName             String?   @map("full_name")
+  method               String?
+  summaryTrainingStart DateTime? @map("summary_training_start")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  googleScholarPubs    GoogleScholarPub[]
+  pubmedPubs           PubmedPub[]
+
+  @@map("scholars")
+}
+
+model GoogleScholarPub {
+  id            Int      @id @default(autoincrement())
+  title         String
+  pubYear       Int?     @map("pub_year")
+  citation      String?
+  author        String?
+  journal       String?
+  publisher     String?
+  abstract      String?  @db.Text
+  authorPubId   String?  @map("author_pub_id")
+  numCitations  Int?     @map("num_citations")
+  citedbyUrl    String?  @map("citedby_url")
+  citesId       String[] @map("cites_id")
+  pubUrl        String?  @map("pub_url")
+  scholarId     String   @map("scholar_id")
+  pubIndex      Int?     @map("pub_index")
+  createdAt     DateTime @default(now()) @map("created_at")
+  scholar       Scholar  @relation(fields: [scholarId], references: [scholarId])
+
+  @@map("google_scholar_pubs")
+}
+
+model PubmedPub {
+  id              Int      @id @default(autoincrement())
+  title           String
+  authors         String[]
+  affiliations    String[]
+  pmid            String?
+  doi             String?
+  abstract        String?  @db.Text
+  meshTerms       String[] @map("mesh_terms")
+  grantSupport    Json?    @map("grant_support")
+  publicationType String[] @map("publication_type")
+  keywords        String[]
+  scholarId       String   @map("scholar_id")
+  pubIndex        Int?     @map("pub_index")
+  createdAt       DateTime @default(now()) @map("created_at")
+  scholar         Scholar  @relation(fields: [scholarId], references: [scholarId])
+
+  @@map("pubmed_pubs")
 }

@@ -3,12 +3,16 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET() {
   try {
-    const scholars = await prisma.scholar.findMany()
+    const scholars = await prisma.scholar.findMany({
+      include: {
+        googleScholarPubs: true,
+        pubmedPubs: true
+      }
+    })
     return NextResponse.json(scholars)
   } catch (error) {
-    console.error('Error fetching scholars:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch scholars' },
+      { error: 'Error fetching scholars' }, 
       { status: 500 }
     )
   }

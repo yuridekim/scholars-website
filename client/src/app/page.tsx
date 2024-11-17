@@ -3,6 +3,7 @@
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { Search, Filter, Download, Users } from 'lucide-react';
+import { Scholar } from '@/lib/types'
 
 const mockData = [
   { name: '2020', papers: 12, citations: 45 },

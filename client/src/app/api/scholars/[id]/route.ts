@@ -7,22 +7,23 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const id = Number(params.id)
     const scholar = await prisma.scholar.findUnique({
-      where: { id }
+      where: { id: parseInt(params.id) },
+      include: {
+        googleScholarPubs: true,
+        pubmedPubs: true
+      }
     })
-
     if (!scholar) {
       return NextResponse.json(
         { error: 'Scholar not found' },
         { status: 404 }
       )
     }
-
     return NextResponse.json(scholar)
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to fetch scholar' },
+      { error: 'Error fetching scholar' },
       { status: 500 }
     )
   }
