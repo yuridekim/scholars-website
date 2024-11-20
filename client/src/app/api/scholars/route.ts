@@ -1,3 +1,4 @@
+// client/src/app/api/scholars/route.ts
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
