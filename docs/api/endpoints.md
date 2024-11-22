@@ -1,14 +1,16 @@
 API Endpoints
+
 Scholars
-GET /api/scholars
+`GET /api/scholars`
 Retrieve a list of scholars.
 Parameters:
 
 page (optional): Page number for pagination
 limit (optional): Number of items per page
 search (optional): Search term for filtering scholars
-
 Response:
+
+```json
 jsonCopy{
   "scholars": [
     {
@@ -24,11 +26,14 @@ jsonCopy{
   "page": 1,
   "limit": 10
 }
+```
 
-GET /api/scholars/:id
+
+`GET /api/scholars/:id`
 Retrieve a specific scholar by ID.
 
-GET /api/metrics
+
+`GET /api/metrics`
 Retrieve aggregated metrics.
 Response:
 jsonCopy{

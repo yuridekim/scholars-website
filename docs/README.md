@@ -7,7 +7,6 @@ Scholar Performance Tracker is a web application for tracking and analyzing acad
 - [Installation Guide](setup/installation.md)
 - [API Documentation](api/endpoints.md)
 - [System Architecture](architecture/system-design.md)
-- [Development Guidelines](development/coding-standards.md)
 
 ## Project Structure
 ```
