@@ -1,20 +1,45 @@
-// client/src/app/scholars/[id]/page.tsx
 'use client'
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Scholar, GoogleScholarPub, PubmedPub } from '@/lib/types'
+import { Scholar, GoogleScholarPub, PubmedPub, Grant } from '@/lib/types'
+
+const extractUniqueGrants = (pubs?: PubmedPub[]): Grant[] => {
+  if (!pubs) return []
+  
+  // Create a Set to store unique grant IDs
+  const uniqueGrantIds = new Set<string>()
+  const uniqueGrants: Grant[] = []
+
+  pubs.forEach(pub => {
+    if (pub.grantSupport) {
+      pub.grantSupport.forEach(grant => {
+        // Use GrantID as unique identifier, or create a composite key if needed
+        const grantKey = grant.GrantID + grant.Agency
+        if (!uniqueGrantIds.has(grantKey) && grant.GrantID !== 'Not available') {
+          uniqueGrantIds.add(grantKey)
+          uniqueGrants.push(grant)
+        }
+      })
+    }
+  })
+
+  return uniqueGrants
+}
 
 export default function ScholarDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const [scholar, setScholar] = useState<Scholar | null>(null)
   const [loading, setLoading] = useState(true)
+  const [grants, setGrants] = useState<Grant[]>([])
 
   useEffect(() => {
     fetch(`/api/scholars/${params.id}`)
       .then((res) => res.json())
       .then((data: Scholar) => {
         setScholar(data)
+        const uniqueGrants = extractUniqueGrants(data.pubmedPubs)
+        setGrants(uniqueGrants)
         setLoading(false)
       })
       .catch((error) => {
@@ -142,6 +167,50 @@ export default function ScholarDetailPage({ params }: { params: { id: string } }
               <div className="mt-6">
                 <h2 className="text-xl font-semibold mb-4">Research Interests</h2>
                 <p className="text-sm text-gray-900">{scholar.interests}</p>
+              </div>
+            )}
+
+{grants.length > 0 && (
+              <div className="mt-6">
+                <h2 className="text-xl font-semibold mb-4">Research Funding</h2>
+                <div className="grid grid-cols-1 gap-4">
+                  {grants.map((grant, index) => (
+                    <div key={index} className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-lg font-medium text-gray-900">
+                          {grant.Agency}
+                        </span>
+                        <span className="text-sm text-gray-500">
+                          {grant.Country}
+                        </span>
+                      </div>
+                      <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <dt className="text-sm font-medium text-gray-500">Grant ID</dt>
+                          <dd className="text-sm text-gray-900">{grant.GrantID}</dd>
+                        </div>
+                        {grant.Acronym !== 'Not available' && (
+                          <div>
+                            <dt className="text-sm font-medium text-gray-500">Program</dt>
+                            <dd className="text-sm text-gray-900">{grant.Acronym}</dd>
+                          </div>
+                        )}
+                        {grant.GrantNumber !== 'Not available' && (
+                          <div>
+                            <dt className="text-sm font-medium text-gray-500">Grant Number</dt>
+                            <dd className="text-sm text-gray-900">{grant.GrantNumber}</dd>
+                          </div>
+                        )}
+                        {grant.ProjectName !== 'Not available' && (
+                          <div className="md:col-span-2">
+                            <dt className="text-sm font-medium text-gray-500">Project</dt>
+                            <dd className="text-sm text-gray-900">{grant.ProjectName}</dd>
+                          </div>
+                        )}
+                      </dl>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

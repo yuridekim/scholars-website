@@ -258,17 +258,17 @@ async function main() {
     await prisma.pubmedPub.deleteMany()
     console.log('Cleared PubMed publications')
     
-    // await prisma.googleScholarPub.deleteMany()
-    // console.log('Cleared Google Scholar publications')
+    await prisma.googleScholarPub.deleteMany()
+    console.log('Cleared Google Scholar publications')
     
-    // await prisma.scholar.deleteMany()
-    // console.log('Cleared scholars')
+    await prisma.scholar.deleteMany()
+    console.log('Cleared scholars')
     
-    // await importScholars()
-    // console.log('✓ Scholars imported')
+    await importScholars()
+    console.log('✓ Scholars imported')
     
-    // await importGoogleScholarPubs()
-    // console.log('✓ Google Scholar publications imported')
+    await importGoogleScholarPubs()
+    console.log('✓ Google Scholar publications imported')
     
     await importPubmedPubs()
     console.log('✓ PubMed publications imported')

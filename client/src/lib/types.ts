@@ -47,4 +47,13 @@ export type Scholar = {
     meshTerms: string[];
     publicationType: string[];
     keywords: string[];
+    grantSupport?: Grant[] | null // Changed to match Prisma's Json type
+  }
+  export type Grant = {
+    GrantID: string
+    Agency: string
+    Country: string
+    Acronym: string
+    GrantNumber: string
+    ProjectName: string
   }
