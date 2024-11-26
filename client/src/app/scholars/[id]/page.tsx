@@ -6,6 +6,7 @@ import { Scholar, GoogleScholarPub, PubmedPub, Grant } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { CollapsibleGrants } from '@/components/grants';
+import { CollapsiblePublications } from '@/components/publications';
 
 
 // Helper function to extract unique grants
@@ -242,7 +243,7 @@ export default function ScholarDetailPage({ params }: { params: { id: string } }
             {grants.length > 0 && <CollapsibleGrants grants={grants} />}
 
             {scholar.googleScholarPubs && scholar.googleScholarPubs.length > 0 && (
-              <Publications pubs={scholar.googleScholarPubs} />
+            <CollapsiblePublications publications={scholar.googleScholarPubs} />
             )}
           </CardContent>
         </Card>
