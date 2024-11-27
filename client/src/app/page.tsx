@@ -3,8 +3,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import { Search, Filter, Download, Users, List } from 'lucide-react';
-import { Scholar, GoogleScholarPub } from '@/lib/types';
+import { Search, Filter, Download, Users, List, X } from 'lucide-react';
+import { Scholar } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 
 interface YearlyStats {
@@ -20,11 +20,28 @@ interface DashboardStats {
   yearlyStats: YearlyStats[];
 }
 
+interface FilterState {
+  affiliation: string;
+  emailDomain: string;
+  citationRange: string;
+  hIndexRange: string;
+}
+
 export default function Home() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [scholars, setScholars] = useState<Scholar[]>([]);
+  const [filteredScholars, setFilteredScholars] = useState<Scholar[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<FilterState>({
+    affiliation: '',
+    emailDomain: '',
+    citationRange: '',
+    hIndexRange: '',
+  });
+  const [uniqueAffiliations, setUniqueAffiliations] = useState<string[]>([]);
+  const [uniqueEmailDomains, setUniqueEmailDomains] = useState<string[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
     totalScholars: 0,
     totalCitations: 0,
@@ -32,25 +49,13 @@ export default function Home() {
     yearlyStats: [],
   });
 
-  useEffect(() => {
-    fetch('/api/scholars')
-      .then((res) => res.json())
-      .then((data: Scholar[]) => {
-        setScholars(data);
-        calculateStats(data);
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error('Error fetching scholars:', error);
-        setLoading(false);
-      });
-  }, []);
-
-  const calculateStats = (scholars: Scholar[]) => {
+  const calculateStats = (scholarData: Scholar[]) => {
     // Calculate basic stats
-    const totalScholars = scholars.length;
-    const totalCitations = scholars.reduce((sum, scholar) => sum + (scholar.citedby || 0), 0);
-    const averageHIndex = scholars.reduce((sum, scholar) => sum + (scholar.hindex || 0), 0) / totalScholars;
+    const totalScholars = scholarData.length;
+    const totalCitations = scholarData.reduce((sum, scholar) => sum + (scholar.citedby || 0), 0);
+    const averageHIndex = scholarData.length > 0 
+      ? scholarData.reduce((sum, scholar) => sum + (scholar.hindex || 0), 0) / totalScholars 
+      : 0;
 
     // Calculate yearly stats from publications
     const yearlyData: Map<string, { papers: number; citations: number }> = new Map();
@@ -63,7 +68,7 @@ export default function Home() {
     }
 
     // Aggregate publication data
-    scholars.forEach(scholar => {
+    scholarData.forEach(scholar => {
       scholar.googleScholarPubs?.forEach(pub => {
         if (pub.pubYear && pub.pubYear >= startYear) {
           const yearStats = yearlyData.get(pub.pubYear.toString());
@@ -89,10 +94,58 @@ export default function Home() {
     });
   };
 
+  useEffect(() => {
+    fetch('/api/scholars')
+      .then((res) => res.json())
+      .then((data: Scholar[]) => {
+        setScholars(data);
+        setFilteredScholars(data);
+        // Extract unique values
+        const affiliations = Array.from(new Set(data.map(s => s.affiliation).filter((aff): aff is string => !!aff))).sort();
+        const domains = Array.from(new Set(data.map(s => s.emailDomain).filter((domain): domain is string => !!domain))).sort();
+        
+        setUniqueAffiliations(affiliations);
+        setUniqueEmailDomains(domains);
+        calculateStats(data);
+        setLoading(false);
+      })
+      .catch((error) => {
+        console.error('Error fetching scholars:', error);
+        setLoading(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    const filtered = scholars.filter(scholar => {
+      const matchesSearch = scholar.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesAffiliation = !filters.affiliation || scholar.affiliation === filters.affiliation;
+      const matchesEmailDomain = !filters.emailDomain || scholar.emailDomain === filters.emailDomain;
+      
+      let matchesCitations = true;
+      if (filters.citationRange) {
+        const [min, max] = filters.citationRange.split('-').map(Number);
+        const citations = scholar.citedby ?? 0;
+        matchesCitations = citations >= min && (!max || citations <= max);
+      }
+
+      let matchesHIndex = true;
+      if (filters.hIndexRange) {
+        const [min, max] = filters.hIndexRange.split('-').map(Number);
+        const hIndex = scholar.hindex ?? 0;
+        matchesHIndex = hIndex >= min && (!max || hIndex <= max);
+      }
+
+      return matchesSearch && matchesAffiliation && matchesEmailDomain && matchesCitations && matchesHIndex;
+    });
+
+    setFilteredScholars(filtered);
+    calculateStats(filtered);
+  }, [searchQuery, filters, scholars]);
+
   const handleExport = () => {
     const csvContent = [
       ['Name', 'Affiliation', 'Citations', 'H-Index', 'Email Domain'].join(','),
-      ...scholars.map(scholar => [
+      ...filteredScholars.map(scholar => [
         `"${scholar.name}"`,
         `"${scholar.affiliation || ''}"`,
         scholar.citedby || 0,
@@ -108,6 +161,16 @@ export default function Home() {
     link.click();
   };
 
+  const resetFilters = () => {
+    setFilters({
+      affiliation: '',
+      emailDomain: '',
+      citationRange: '',
+      hIndexRange: '',
+    });
+    setShowFilters(false);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-8 flex items-center justify-center">
@@ -119,7 +182,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
+        {/* Header section remains the same */}
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Scholar Performance Tracker</h1>
           <div className="flex gap-4">
@@ -135,14 +198,14 @@ export default function Home() {
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               <Download size={20} />
-              Export Data
+              Export Data ({filteredScholars.length} scholars)
             </button>
           </div>
         </div>
 
         {/* Search and Filter Bar */}
         <div className="bg-white p-4 rounded-lg shadow mb-8">
-          <div className="flex gap-4">
+          <div className="flex gap-4 mb-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-2.5 text-gray-400" size={20} />
               <input
@@ -153,11 +216,92 @@ export default function Home() {
                 className="w-full pl-10 pr-4 py-2 border rounded-lg"
               />
             </div>
-            <button className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50">
+            <button 
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-2 px-4 py-2 border rounded-lg ${showFilters ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+            >
               <Filter size={20} />
               Filters
+              {Object.values(filters).some(f => f) && (
+                <span className="ml-2 px-2 py-0.5 text-sm bg-blue-100 text-blue-800 rounded-full">
+                  {Object.values(filters).filter(f => f).length}
+                </span>
+              )}
             </button>
           </div>
+
+          {/* Filter Panel */}
+          {showFilters && (
+            <div className="border-t pt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Affiliation</label>
+                  <select
+                    value={filters.affiliation}
+                    onChange={(e) => setFilters(prev => ({ ...prev, affiliation: e.target.value }))}
+                    className="w-full p-2 border rounded-lg"
+                  >
+                    <option value="">All Affiliations</option>
+                    {uniqueAffiliations.map(aff => (
+                      <option key={aff} value={aff}>{aff}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email Domain</label>
+                  <select
+                    value={filters.emailDomain}
+                    onChange={(e) => setFilters(prev => ({ ...prev, emailDomain: e.target.value }))}
+                    className="w-full p-2 border rounded-lg"
+                  >
+                    <option value="">All Domains</option>
+                    {uniqueEmailDomains.map(domain => (
+                      <option key={domain} value={domain}>{domain}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Citations Range</label>
+                  <select
+                    value={filters.citationRange}
+                    onChange={(e) => setFilters(prev => ({ ...prev, citationRange: e.target.value }))}
+                    className="w-full p-2 border rounded-lg"
+                  >
+                    <option value="">Any Citations</option>
+                    <option value="0-100">0-100</option>
+                    <option value="101-500">101-500</option>
+                    <option value="501-1000">501-1,000</option>
+                    <option value="1001-5000">1,001-5,000</option>
+                    <option value="5001-">5,001+</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">h-index Range</label>
+                  <select
+                    value={filters.hIndexRange}
+                    onChange={(e) => setFilters(prev => ({ ...prev, hIndexRange: e.target.value }))}
+                    className="w-full p-2 border rounded-lg"
+                  >
+                    <option value="">Any h-index</option>
+                    <option value="0-10">0-10</option>
+                    <option value="11-20">11-20</option>
+                    <option value="21-30">21-30</option>
+                    <option value="31-50">31-50</option>
+                    <option value="51-">51+</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end mt-4">
+                <button
+                  onClick={resetFilters}
+                  className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900"
+                >
+                  <X size={16} />
+                  Reset Filters
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Stats Grid */}
