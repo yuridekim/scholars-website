@@ -1,4 +1,3 @@
-// app/scholars/new/page.tsx
 'use client';
 
 import { useState } from 'react';
@@ -33,16 +32,17 @@ export default function NewScholarPage() {
   const [jsonData, setJsonData] = useState(JSON.stringify(defaultData, null, 2));
   const [error, setError] = useState('');
   const [existingScholarId, setExistingScholarId] = useState<number | null>(null);
-
+  const [newScholarId, setNewScholarId] = useState<number | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setExistingScholarId(null);
+    setNewScholarId(null);
+    setIsSubmitting(true);
 
     try {
-      const parsedData = JSON.parse(jsonData);
-      
       const response = await fetch('/api/scholars', {
         method: 'POST',
         headers: {
@@ -51,21 +51,27 @@ export default function NewScholarPage() {
         body: jsonData,
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        if (response.status === 409) {
-          const data = await response.json();
-          if (data.scholarId) {
-            setExistingScholarId(data.scholarId);
-            throw new Error(data.error || 'Scholar already exists in database');
-          }
+        if (response.status === 409 && data.scholarId) {
+          setExistingScholarId(data.scholarId);
+          throw new Error(data.error || 'Scholar already exists in database');
         }
         throw new Error('Failed to create scholar');
       }
 
-      router.push('/scholars');
-      router.refresh();
+      if (data.id) {
+        setNewScholarId(data.id);
+      } else {
+        console.error('No ID returned for new scholar');
+        throw new Error('No ID returned for new scholar');
+      }
+      
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid JSON format');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -79,6 +85,7 @@ export default function NewScholarPage() {
           onChange={(e) => setJsonData(e.target.value)}
           className="w-full h-[600px] font-mono p-4 border rounded"
           spellCheck="false"
+          disabled={isSubmitting}
         />
         
         {error && (
@@ -95,20 +102,35 @@ export default function NewScholarPage() {
             )}
           </div>
         )}
+
+        {newScholarId && (
+          <div className="flex items-center gap-4 text-green-600">
+            <span>Scholar successfully created!</span>
+            <button
+              type="button"
+              onClick={() => router.push(`/scholars/${newScholarId}`)}
+              className="px-4 py-2 text-blue-500 underline hover:text-blue-600"
+            >
+              View New Scholar
+            </button>
+          </div>
+        )}
         
         <div className="flex justify-end space-x-4">
           <button
             type="button"
             onClick={() => router.back()}
             className="px-4 py-2 border rounded hover:bg-gray-100"
+            disabled={isSubmitting}
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-blue-300"
+            disabled={isSubmitting}
           >
-            Save Scholar
+            {isSubmitting ? 'Saving...' : 'Save Scholar'}
           </button>
         </div>
       </form>
