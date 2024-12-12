@@ -7,10 +7,15 @@ const defaultData = {
   profile: {
     scholarId: "ykMokgsAAAAJ",
     name: "Minjeong Jeon",
-    institution: "University of California, Los Angeles",
+    affiliation: "University of California, Los Angeles",
+    emailDomain: "ucla.edu",
     email: "verified@ucla.edu",
-    citations: 4647,
-    interests: ["latent variable modeling", "psychometrics", "statistics", "measurement"]
+    citedby: 4647,
+    interests: ["latent variable modeling", "psychometrics", "statistics", "measurement"],
+    hindex: 32,
+    hindex5y: 25,
+    i10index: 70,
+    i10index5y: 50
   },
   publications: [
     {
