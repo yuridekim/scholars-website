@@ -2,34 +2,45 @@
   "name": "scholars-website",
   "version": "1.0.0",
   "private": true,
-  "workspaces": [
-    "client",
-    "server",
-    "shared"
-  ],
   "scripts": {
-    "dev": "concurrently \"npm run dev:client\" \"npm run dev:server\"",
-    "dev:client": "npm run dev -w client",
-    "dev:server": "npm run dev -w server",
-    "build": "npm run build -w client && npm run build -w server",
-    "test": "npm run test -w client && npm run test -w server",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
     "seed": "ts-node prisma/seed.ts"
-  },
-  "devDependencies": {
-    "@types/node": "^22.9.0",
-    "concurrently": "^8.2.0",
-    "csv-parse": "^5.5.6",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.6.3"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "@radix-ui/react-select": "^2.1.2",
+    "@radix-ui/react-separator": "^1.1.0",
+    "@shadcn/ui": "^0.0.4",
     "axios": "^1.7.8",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "express": "^4.21.1",
     "fast-xml-parser": "^4.5.0",
-    "next": "^15.0.4-canary.19",
+    "lucide-react": "^0.294.0",
+    "next": "^14.2.17",
     "pg": "^8.13.1",
-    "prisma": "^5.22.0"
+    "prisma": "^5.22.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "recharts": "^2.13.3",
+    "tailwind-merge": "^2.5.5",
+    "tailwindcss-animate": "^1.0.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/forms": "^0.5.9",
+    "@types/node": "^22.9.0",
+    "@types/react": "18.2.0",
+    "@types/react-dom": "18.2.0",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^8.2.0",
+    "csv-parse": "^5.5.6",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.14",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
