@@ -1,7 +1,5 @@
 // src/app/scholars/page.tsx
 'use client'
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 
 export type Scholar = {
     id: number;

@@ -4,7 +4,7 @@ import { executePythonScript } from '@/lib/pythonExecutor';
 
 export async function GET() {
     try {
-        const scriptPath = path.join(process.cwd(), 'python-scripts', 'python_plot.py');
+        const scriptPath = path.join(process.cwd(), 'viz-scripts', 'python_plot.py');
         const result = await executePythonScript(scriptPath);
         
         return NextResponse.json(JSON.parse(result));
