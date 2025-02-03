@@ -67,3 +67,14 @@
     @apply bg-background text-foreground;
   }
 }
+
+.network-graph {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.network-graph svg {
+  display: block;
+  background: white;
+}
