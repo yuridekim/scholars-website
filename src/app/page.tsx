@@ -1,24 +1,9 @@
-// src/app/page.tsx
 'use client'
 
 import React, { useState, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import { Search, Filter, Download, Users, List, X } from 'lucide-react';
+import { Search, Filter, List, X } from 'lucide-react';
 import { Scholar } from '@/lib/types';
 import { useRouter } from 'next/navigation';
-
-interface YearlyStats {
-  name: string;
-  papers: number;
-  citations: number;
-}
-
-interface DashboardStats {
-  totalScholars: number;
-  totalCitations: number;
-  averageHIndex: number;
-  yearlyStats: YearlyStats[];
-}
 
 interface FilterState {
   affiliation: string;
@@ -42,57 +27,6 @@ export default function Home() {
   });
   const [uniqueAffiliations, setUniqueAffiliations] = useState<string[]>([]);
   const [uniqueEmailDomains, setUniqueEmailDomains] = useState<string[]>([]);
-  const [stats, setStats] = useState<DashboardStats>({
-    totalScholars: 0,
-    totalCitations: 0,
-    averageHIndex: 0,
-    yearlyStats: [],
-  });
-
-  const calculateStats = (scholarData: Scholar[]) => {
-    // Calculate basic stats
-    const totalScholars = scholarData.length;
-    const totalCitations = scholarData.reduce((sum, scholar) => sum + (scholar.citedby || 0), 0);
-    const averageHIndex = scholarData.length > 0 
-      ? scholarData.reduce((sum, scholar) => sum + (scholar.hindex || 0), 0) / totalScholars 
-      : 0;
-
-    // Calculate yearly stats from publications
-    const yearlyData: Map<string, { papers: number; citations: number }> = new Map();
-    const currentYear = new Date().getFullYear();
-    const startYear = currentYear - 4;
-
-    // Initialize years
-    for (let year = startYear; year <= currentYear; year++) {
-      yearlyData.set(year.toString(), { papers: 0, citations: 0 });
-    }
-
-    // Aggregate publication data
-    scholarData.forEach(scholar => {
-      scholar.googleScholarPubs?.forEach(pub => {
-        if (pub.pubYear && pub.pubYear >= startYear) {
-          const yearStats = yearlyData.get(pub.pubYear.toString());
-          if (yearStats) {
-            yearStats.papers += 1;
-            yearStats.citations += pub.numCitations || 0;
-          }
-        }
-      });
-    });
-
-    // Convert to array format for chart
-    const yearlyStats = Array.from(yearlyData.entries()).map(([name, data]) => ({
-      name,
-      ...data
-    }));
-
-    setStats({
-      totalScholars,
-      totalCitations,
-      averageHIndex: Math.round(averageHIndex * 10) / 10,
-      yearlyStats: yearlyStats.sort((a, b) => a.name.localeCompare(b.name))
-    });
-  };
 
   useEffect(() => {
     fetch('/api/scholars')
@@ -100,13 +34,11 @@ export default function Home() {
       .then((data: Scholar[]) => {
         setScholars(data);
         setFilteredScholars(data);
-        // Extract unique values
         const affiliations = Array.from(new Set(data.map(s => s.affiliation).filter((aff): aff is string => !!aff))).sort();
         const domains = Array.from(new Set(data.map(s => s.emailDomain).filter((domain): domain is string => !!domain))).sort();
         
         setUniqueAffiliations(affiliations);
         setUniqueEmailDomains(domains);
-        calculateStats(data);
         setLoading(false);
       })
       .catch((error) => {
@@ -139,27 +71,7 @@ export default function Home() {
     });
 
     setFilteredScholars(filtered);
-    calculateStats(filtered);
   }, [searchQuery, filters, scholars]);
-
-  const handleExport = () => {
-    const csvContent = [
-      ['Name', 'Affiliation', 'Citations', 'H-Index', 'Email Domain'].join(','),
-      ...filteredScholars.map(scholar => [
-        `"${scholar.name}"`,
-        `"${scholar.affiliation || ''}"`,
-        scholar.citedby || 0,
-        scholar.hindex || 0,
-        `"${scholar.emailDomain || ''}"`,
-      ].join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'scholars_data.csv';
-    link.click();
-  };
 
   const resetFilters = () => {
     setFilters({
@@ -182,7 +94,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header section remains the same */}
+        {/* Header section */}
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Scholar Performance Tracker</h1>
           <div className="flex gap-4">
@@ -192,13 +104,6 @@ export default function Home() {
             >
               <List size={20} />
               View All Scholars
-            </button>
-            <button 
-              onClick={handleExport}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              <Download size={20} />
-              Export Data ({filteredScholars.length} scholars)
             </button>
           </div>
         </div>
@@ -302,48 +207,6 @@ export default function Home() {
               </div>
             </div>
           )}
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-lg shadow">
-            <div className="flex items-center gap-4">
-              <Users className="text-blue-600" size={24} />
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">Total Scholars</h3>
-                <p className="text-2xl font-bold">{stats.totalScholars.toLocaleString()}</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow">
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Total Citations</h3>
-              <p className="text-2xl font-bold">{stats.totalCitations.toLocaleString()}</p>
-            </div>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow">
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Average h-index</h3>
-              <p className="text-2xl font-bold">{stats.averageHIndex}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Chart */}
-        <div className="bg-white p-6 rounded-lg shadow mb-8 overflow-x-auto">
-          <h2 className="text-lg font-semibold mb-4">Publication Performance</h2>
-          <div className="min-w-[800px]">
-            <BarChart width={800} height={300} data={stats.yearlyStats}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis yAxisId="left" />
-              <YAxis yAxisId="right" orientation="right" />
-              <Tooltip />
-              <Legend />
-              <Bar yAxisId="left" dataKey="papers" fill="#3b82f6" name="Papers" />
-              <Bar yAxisId="right" dataKey="citations" fill="#10b981" name="Citations" />
-            </BarChart>
-          </div>
         </div>
       </div>
     </div>
