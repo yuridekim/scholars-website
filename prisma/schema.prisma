@@ -28,6 +28,7 @@ model Scholar {
   createdAt            DateTime  @default(now()) @map("created_at")
   googleScholarPubs    GoogleScholarPub[]
   pubmedPubs           PubmedPub[]
+  paperTopics          PaperTopic[]
 
   @@map("scholars")
 }
@@ -97,6 +98,51 @@ model TopicInformation {
   topic_popularity  Float
   w1               Float
   w2               Float
+  paperTopics       PaperTopic[]
 
   @@map("topic_info")
+}
+
+model PaperTopic {
+  id                    Int       @id @default(autoincrement())
+  paperId               String    @map("paper_id")
+  title                 String    @db.Text
+  pubYear               Int?      @map("pub_year")
+  citation              String?   @db.Text
+  author                String?
+  journal               String?
+  publisher             String?
+  abstract              String?   @db.Text
+  authorPubId           String?   @map("author_pub_id")
+  numCitations          Int?      @map("num_citations")
+  citedbyUrl           String?   @map("citedby_url")
+  citesId              String[]  @map("cites_id")
+  pubUrl               String?   @map("pub_url")
+  scholarName          String    @map("scholar_name")
+  emailDomain          String?   @map("email_domain")
+  scholarId            String    @map("scholar_id")
+  pubIndex             Int?      @map("pub_index")
+  recordId             Int?      @map("record_id")
+  timestamp            DateTime?
+  text4emb             String?   @db.Text @map("text4emb")
+  topicId              String    @map("topic_id")
+  description          String?   @db.Text
+  gptMhealthLabel      Int?      @map("gpt_mhealth_label")
+  generalClass14       Int?      @map("general_class_14")
+  mhealthTopicTag      Int?      @map("mhealth_topic_tag")
+  descriptionClass14   String?   @map("description_class_14")
+  vector2dComponent1   Float     @map("2d_vector_component_1")
+  vector2dComponent2   Float     @map("2d_vector_component_2")
+  vector3dComponent1   Float     @map("3d_vector_component_1")
+  vector3dComponent2   Float     @map("3d_vector_component_2")
+  vector3dComponent3   Float     @map("3d_vector_component_3")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  scholar             Scholar   @relation(fields: [scholarId], references: [scholarId], onDelete: Cascade, onUpdate: NoAction)
+  topic               TopicInformation @relation(fields: [topicId], references: [topic_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("paper_topics")
+  @@index([scholarId])
+  @@index([topicId])
 }

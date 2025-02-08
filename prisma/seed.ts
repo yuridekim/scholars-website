@@ -103,6 +103,40 @@ type TopicInformation = {
   w2: string
 }
 
+type PaperTopicRecord = {
+  paper_id: string
+  title: string
+  pub_year?: string
+  citation?: string
+  author?: string
+  journal?: string
+  publisher?: string
+  abstract?: string
+  author_pub_id?: string
+  num_citations?: string
+  citedby_url?: string
+  cites_id?: string
+  pub_url?: string
+  scholar_name: string
+  email_domain?: string
+  scholar_id: string
+  pub_index?: string
+  record_id?: string
+  timestamp?: string
+  text4emb?: string
+  topic_id: string
+  description?: string
+  gpt_mhealth_label?: string
+  general_class_14?: string
+  mhealth_topic_tag?: string
+  description_class_14?: string
+  '2d_vector_component_1': string
+  '2d_vector_component_2': string
+  '3d_vector_component_1': string
+  '3d_vector_component_2': string
+  '3d_vector_component_3': string
+}
+
 
 async function importScholars() {
   const records = parseCSV('id_df.csv') as ScholarRecord[]
@@ -355,6 +389,91 @@ async function importTopicInfo() {
   }
 }
 
+async function importPaperTopics() {
+  try {
+    const records = parseCSV('gg_pub_df_for_vis.csv') as PaperTopicRecord[]
+    console.log(`Found ${records.length} paper topics to import`)
+    
+    for (const record of records) {
+      try {
+        const scholar = await prisma.scholar.findUnique({
+          where: { scholarId: record.scholar_id }
+        })
+        
+        if (!scholar) {
+          console.warn(`Warning: Scholar not found for ID: ${record.scholar_id}`)
+          continue
+        }
+
+        const prefixedTopicId = 'X' + record.topic_id;
+
+        const topic = await prisma.topicInformation.findUnique({
+          where: { topic_id: prefixedTopicId }
+        })
+        
+        if (!topic) {
+          console.warn(`Warning: Topic not found for ID: ${prefixedTopicId}`);
+          continue
+        }
+
+        let citesId: string[] = []
+        if (record.cites_id) {
+          try {
+            citesId = record.cites_id.split(',').map(id => id.trim())
+          } catch (e) {
+            console.warn(`Warning: Could not parse cites_id for paper ${record.paper_id}`)
+          }
+        }
+
+        await prisma.paperTopic.create({
+          data: {
+            paperId: String(record.paper_id),
+            title: record.title,
+            pubYear: record.pub_year ? parseInt(record.pub_year) : null,
+            citation: record.citation,
+            author: record.author,
+            journal: record.journal,
+            publisher: record.publisher,
+            abstract: record.abstract,
+            authorPubId: record.author_pub_id,
+            numCitations: record.num_citations ? parseInt(record.num_citations) : null,
+            citedbyUrl: record.citedby_url,
+            citesId: citesId,
+            pubUrl: record.pub_url,
+            scholarName: record.scholar_name,
+            emailDomain: record.email_domain,
+            scholarId: record.scholar_id,
+            pubIndex: record.pub_index ? parseInt(record.pub_index) : null,
+            recordId: record.record_id ? parseInt(record.record_id) : null,
+            timestamp: record.timestamp ? new Date(record.timestamp) : null,
+            text4emb: record.text4emb,
+            topicId: prefixedTopicId, // Use the prefixed topic ID
+            description: record.description,
+            gptMhealthLabel: record.gpt_mhealth_label ? parseInt(record.gpt_mhealth_label) : null,
+            generalClass14: record.general_class_14 ? parseInt(record.general_class_14) : null,
+            mhealthTopicTag: record.mhealth_topic_tag ? parseInt(record.mhealth_topic_tag) : null,
+            descriptionClass14: record.description_class_14,
+            vector2dComponent1: parseFloat(record['2d_vector_component_1']),
+            vector2dComponent2: parseFloat(record['2d_vector_component_2']),
+            vector3dComponent1: parseFloat(record['3d_vector_component_1']),
+            vector3dComponent2: parseFloat(record['3d_vector_component_2']),
+            vector3dComponent3: parseFloat(record['3d_vector_component_3'])
+          }
+        })
+      } catch (error) {
+        console.error(`Error importing paper topic "${record.title}":`, error)
+        console.error('Record data:', JSON.stringify(record, null, 2))
+        break;
+      }
+    }
+    
+    console.log('Completed paper topics import')
+  } catch (error) {
+    console.error('Error in importPaperTopics:', error)
+    throw error
+  }
+}
+
 
 async function main() {
   try {
@@ -374,6 +493,9 @@ async function main() {
     
     // await prisma.topicInformation.deleteMany()
     console.log('Cleared topic_info')
+
+    // await prisma.paperTopic.deleteMany()
+    console.log('Cleared Paper Topics')
     
     await importScholars()
     console.log('✓ Scholars imported')
@@ -389,6 +511,9 @@ async function main() {
     
     await importTopicInfo()
     console.log('✓ Topic Information imported')
+
+    await importPaperTopics()
+    console.log('✓ Paper Topics imported')
     
     console.log('Data import completed successfully')
   } catch (error) {
