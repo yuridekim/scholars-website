@@ -375,16 +375,16 @@ async function main() {
     // await prisma.topicInformation.deleteMany()
     console.log('Cleared topic_info')
     
-    // await importScholars()
+    await importScholars()
     console.log('✓ Scholars imported')
     
-    // await importGoogleScholarPubs()
+    await importGoogleScholarPubs()
     console.log('✓ Google Scholar publications imported')
     
-    // await importPubmedPubs()
+    await importPubmedPubs()
     console.log('✓ PubMed publications imported')
 
-    // await importScholarInfo()
+    await importScholarInfo()
     console.log('✓ Scholar Information imported')
     
     await importTopicInfo()

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Filter, List, X, Grid, Layers } from 'lucide-react';
 import { Scholar } from '@/lib/types';
 import { useRouter } from 'next/navigation';
-import TopicVisualization from '@/components/visualizations/TopicInfo';
+import DualVisualization from '@/components/visualizations/MainViz';
 
 interface FilterState {
   affiliation: string;
@@ -248,7 +248,7 @@ export default function Home() {
 
         {/* Topic Visualization */}
         <div className="mb-8">
-          <TopicVisualization data={topics} viewMode={viewMode} />
+        <DualVisualization topicData={topics} />;
         </div>
       </div>
     </div>
