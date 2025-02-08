@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client'
 import fs from 'fs'
 import path from 'path'
-import { parse } from 'csv-parse/sync'  // Changed this import
+import { parse } from 'csv-parse/sync'
 
 const prisma = new PrismaClient()
 
@@ -11,10 +11,14 @@ const parseCSV = (filePath: string) => {
   
   try {
     const fileContent = fs.readFileSync(fullPath, 'utf-8')
-    return parse(fileContent, {  // Using synchronous parse
+    
+    const parsed = parse(fileContent, {
       columns: true,
-      skip_empty_lines: true
-    })
+      skip_empty_lines: true,
+      trim: true
+    });
+    
+    return parsed;
   } catch (error) {
     console.error(`Error reading file ${fullPath}:`, error)
     throw error
@@ -75,6 +79,30 @@ type PubMedRecord = {
   paper_id?: string
   dict_error?: string | number
 }
+
+type ScholarInformation = {
+  record_id: string
+  name: string
+  cohort: string
+  gender: string
+  stage: string
+  com_discipline: string
+  region: string
+  productivity: string
+  z1: string
+  z2: string
+}
+
+type TopicInformation = {
+  topic_id: string
+  topic_name: string
+  topic_description: string
+  general_class14: string
+  topic_popularity: string
+  w1: string
+  w2: string
+}
+
 
 async function importScholars() {
   const records = parseCSV('id_df.csv') as ScholarRecord[]
@@ -154,6 +182,8 @@ async function importGoogleScholarPubs() {
       })
     } catch (error) {
       console.error(`Error importing publication ${record.title}:`, error)
+      console.error('Record data:', JSON.stringify(record, null, 2))
+      console.error('Scholar ID:', record.scholar_id)
     }
   }
 }
@@ -165,7 +195,6 @@ async function importPubmedPubs() {
     
     for (const record of records) {
       try {
-        // First find the scholar by name
         const scholar = await prisma.scholar.findFirst({
           where: { name: record.name }
         })
@@ -175,10 +204,8 @@ async function importPubmedPubs() {
           continue
         }
         
-        // Safely parse grant support
         let grantSupport = null
         try {
-          // Clean up the string and try to parse it
           if (record['Grant Support']) {
             const cleanedGrantSupport = record['Grant Support']
               .replace(/'/g, '"')  // Replace single quotes with double quotes
@@ -192,11 +219,9 @@ async function importPubmedPubs() {
           console.warn('Grant Support data:', record['Grant Support'])
         }
 
-        // Safely parse keywords
         let keywords: string[] = []
         try {
           if (record.Keywords && record.Keywords !== '[]') {
-            // Extract just the string values from the complex structure
             const keywordsMatch = record.Keywords.match(/'([^']+)'/g)
             if (keywordsMatch) {
               keywords = keywordsMatch.map(k => k.replace(/'/g, ''))
@@ -206,12 +231,11 @@ async function importPubmedPubs() {
           console.warn(`Warning: Could not parse keywords for ${record.Title}`)
         }
 
-        // Parse publication types
         let publicationType: string[] = []
         try {
           if (record['Publication Type']) {
             const cleanedPubType = record['Publication Type']
-              .replace(/[\[\]']/g, '')  // Remove brackets and quotes
+              .replace(/[\[\]']/g, '')
               .split(',')
               .map(t => t.trim())
               .filter(t => t.length > 0)
@@ -221,8 +245,6 @@ async function importPubmedPubs() {
           console.warn(`Warning: Could not parse publication type for ${record.Title}`)
         }
 
-        console.log(`Importing publication: ${record.Title} for scholar ${scholar.name}`)
-        
         const result = await prisma.pubmedPub.create({
           data: {
             title: record.Title,
@@ -239,7 +261,6 @@ async function importPubmedPubs() {
             pubIndex: record.pub_index ? parseInt(record.pub_index.toString()) : null
           }
         })
-        console.log(`Successfully imported publication ${result.id}`)
       } catch (error) {
         console.error(`Error importing publication "${record.Title}":`, error)
         console.error('Record data:', JSON.stringify(record, null, 2))
@@ -250,28 +271,124 @@ async function importPubmedPubs() {
   }
 }
 
+async function importScholarInfo() {
+  const records = parseCSV('scholar_information.csv') as ScholarInformation[]
+  
+  for (const record of records) {
+    try {
+      await prisma.scholarInformation.upsert({
+        where: {
+          record_id: parseInt(record.record_id)
+        },
+        update: {
+          name: record.name,
+          cohort: parseInt(record.cohort),
+          gender: record.gender,
+          stage: record.stage,
+          com_discipline: record.com_discipline,
+          region: record.region,
+          productivity: parseFloat(record.productivity),
+          z1: parseFloat(record.z1),
+          z2: parseFloat(record.z2)
+        },
+        create: {
+          record_id: parseInt(record.record_id),
+          name: record.name,
+          cohort: parseInt(record.cohort),
+          gender: record.gender,
+          stage: record.stage,
+          com_discipline: record.com_discipline,
+          region: record.region,
+          productivity: parseFloat(record.productivity),
+          z1: parseFloat(record.z1),
+          z2: parseFloat(record.z2)
+        }
+      })
+    } catch (error) {
+      console.error(`Error importing scholar information ${record.name}:`, error)
+    }
+  }
+}
+
+async function importTopicInfo() {
+  try {
+    const records = parseCSV('topic_information_cleaned.csv')
+    console.log(`Found ${records.length} topics to import`)
+    
+    for (const record of records) {
+      try {
+        const topicRecord = {
+          topic_id: record.topic_id,
+          topic_name: record.topic_name,
+          topic_description: record.topic_description.trim(),
+          general_class14: parseInt(record.general_class14),
+          topic_popularity: parseFloat(record.topic_popularity),
+          w1: parseFloat(record.weight_1),
+          w2: parseFloat(record.weight_2)
+        }
+
+        if (!topicRecord.topic_id || !topicRecord.topic_name) {
+          throw new Error(`Missing required fields for topic ${record.topic_id}`)
+        }
+
+        await prisma.topicInformation.upsert({
+          where: {
+            topic_id: topicRecord.topic_id
+          },
+          update: topicRecord,
+          create: topicRecord
+        })
+
+      } catch (error) {
+        console.error('Error processing topic:', {
+          id: record.topic_id,
+          error: error instanceof Error ? error.message : String(error)
+        })
+        continue
+      }
+    }
+    
+    console.log('Completed topic information import')
+  } catch (error) {
+    console.error('Failed to import topic information:', error)
+    throw error
+  }
+}
+
+
 async function main() {
   try {
     console.log('Starting data import...')
     
-    // Clear existing data
-    await prisma.pubmedPub.deleteMany()
+    // await prisma.pubmedPub.deleteMany()
     console.log('Cleared PubMed publications')
     
-    await prisma.googleScholarPub.deleteMany()
+    // await prisma.googleScholarPub.deleteMany()
     console.log('Cleared Google Scholar publications')
     
-    await prisma.scholar.deleteMany()
+    // await prisma.scholar.deleteMany()
     console.log('Cleared scholars')
+
+    // await prisma.scholarInformation.deleteMany()
+    console.log('Cleared scholar_info')
     
-    await importScholars()
+    // await prisma.topicInformation.deleteMany()
+    console.log('Cleared topic_info')
+    
+    // await importScholars()
     console.log('✓ Scholars imported')
     
-    await importGoogleScholarPubs()
+    // await importGoogleScholarPubs()
     console.log('✓ Google Scholar publications imported')
     
-    await importPubmedPubs()
+    // await importPubmedPubs()
     console.log('✓ PubMed publications imported')
+
+    // await importScholarInfo()
+    console.log('✓ Scholar Information imported')
+    
+    await importTopicInfo()
+    console.log('✓ Topic Information imported')
     
     console.log('Data import completed successfully')
   } catch (error) {

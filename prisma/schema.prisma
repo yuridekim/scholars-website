@@ -73,3 +73,30 @@ model PubmedPub {
 
   @@map("pubmed_pubs")
 }
+
+model ScholarInformation {
+  record_id       Int      @id
+  name           String
+  cohort         Int
+  gender         String
+  stage          String
+  com_discipline String
+  region         String
+  productivity   Float
+  z1             Float
+  z2             Float
+
+  @@map("scholars_info")
+}
+
+model TopicInformation {
+  topic_id          String  @id @map("topic_id")
+  topic_name        String
+  topic_description String
+  general_class14   Int
+  topic_popularity  Float
+  w1               Float
+  w2               Float
+
+  @@map("topic_info")
+}
