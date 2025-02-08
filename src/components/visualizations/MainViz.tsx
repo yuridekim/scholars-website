@@ -1,8 +1,7 @@
-'use client';
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { useRouter } from 'next/navigation';
 
 interface TopicInfo {
   topic_id: string;
@@ -47,6 +46,7 @@ const CLASS_COLORS: Record<number, string> = {
 const DualVisualization: React.FC<VisualizationProps> = ({ topicData, viewMode = 'cluster' }) => {
   const [hoveredClass, setHoveredClass] = useState<number | null>(null);
   const [ptVizData, setPtVizData] = useState<ptViz[] | undefined>(undefined);
+  const router = useRouter();
 
   useEffect(() => {
     async function fetchPtVizData() {
@@ -76,6 +76,9 @@ const DualVisualization: React.FC<VisualizationProps> = ({ topicData, viewMode =
       return (
         <div className="bg-white p-4 shadow-lg rounded-lg border">
           <p className="font-semibold">Class {item.general_class14 || item.class}</p>
+          <p className="text-sm text-gray-600">
+            Type: {item.topic_name ? 'Topic' : 'Scholar'}
+          </p>
           {item.topic_name && (
             <p className="text-sm text-gray-600">Topic: {item.topic_name}</p>
           )}
@@ -111,7 +114,8 @@ const DualVisualization: React.FC<VisualizationProps> = ({ topicData, viewMode =
         />
         <Tooltip content={<CustomTooltip />} />
         <Legend />
-        {uniqueClasses.map((classNum) => (
+
+        {type === 'topic' && uniqueClasses.map((classNum) => (
           <Scatter
             key={classNum}
             name={`Class ${classNum}`}
@@ -122,12 +126,80 @@ const DualVisualization: React.FC<VisualizationProps> = ({ topicData, viewMode =
             onMouseLeave={() => setHoveredClass(null)}
           />
         ))}
+
+        {type === 'ptViz' && (
+          <>
+            {}
+            <Scatter
+              name="Scholars"
+              data={ptVizData}
+              fill="none"
+              stroke="#808080"
+              strokeWidth={2}
+              opacity={hoveredClass ? 0.3 : 1}
+              shape={(props: any) => {
+                const centerX = props.cx;
+                const centerY = props.cy;
+                const size = 8;
+                const pathData = `M ${centerX} ${centerY - size / 2 * Math.sqrt(3) / 2} L ${centerX - size / 2} ${centerY + size / 2 * Math.sqrt(3) / 2} L ${centerX + size / 2} ${centerY + size / 2 * Math.sqrt(3) / 2} Z`;
+                return (
+                  <path
+                    d={pathData}
+                    style={{
+                      fill: "none",
+                      stroke: "#808080",
+                      strokeWidth: 2
+                    }}
+                  />
+                );
+              }}
+              onClick={(event) => {
+                const dataPoint = ptVizData?.find(item => item.w1 === event.w1 && item.w2 === event.w2);
+                if (dataPoint?.id) {
+                  router.push(`/scholars/${dataPoint.id}`);
+                }
+              }}
+              style={{ cursor: 'pointer' }}
+            />
+
+            {}
+            {uniqueClasses.map((classNum) => (
+              <Scatter
+                key={`topic-${classNum}`}
+                name={`Topics Class ${classNum}`}
+                data={topicData.filter(item => item.general_class14 === classNum)}
+                fill={CLASS_COLORS[classNum]}
+                opacity={hoveredClass ? (hoveredClass === classNum ? 1 : 0.3) : 0.8}
+                shape="circle"
+                onMouseEnter={() => setHoveredClass(classNum)}
+                onMouseLeave={() => setHoveredClass(null)}
+              />
+            ))}
+          </>
+        )}
       </ScatterChart>
     </ResponsiveContainer>
   );
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 gap-4"> {}
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>Combined Interaction Map</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[700px] w-full"> {}
+            {ptVizData && (
+              <ScatterPlot
+                data={ptVizData}
+                dataKey="class"
+                type="ptViz"
+              />
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       <Card className="w-full">
         <CardHeader>
           <CardTitle>Topic Distribution by Class</CardTitle>
@@ -139,21 +211,6 @@ const DualVisualization: React.FC<VisualizationProps> = ({ topicData, viewMode =
               dataKey="general_class14"
               type="topic"
             />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle>Interaction Map</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[500px] w-full">
-              {ptVizData && <ScatterPlot
-                data={ptVizData}
-                dataKey="class"
-                type="ptViz"
-              />}
           </div>
         </CardContent>
       </Card>
