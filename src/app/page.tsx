@@ -1,9 +1,10 @@
 'use client'
 
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, List, X } from 'lucide-react';
+import { Search, Filter, List, X, Grid, Layers } from 'lucide-react';
 import { Scholar } from '@/lib/types';
 import { useRouter } from 'next/navigation';
+import TopicVisualization from '@/components/visualizations/TopicInfo';
 
 interface FilterState {
   affiliation: string;
@@ -12,13 +13,25 @@ interface FilterState {
   hIndexRange: string;
 }
 
+interface TopicInfo {
+  topic_id: string;
+  topic_name: string;
+  topic_description: string;
+  general_class14: number;
+  topic_popularity: number;
+  w1: number;
+  w2: number;
+}
+
 export default function Home() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [scholars, setScholars] = useState<Scholar[]>([]);
   const [filteredScholars, setFilteredScholars] = useState<Scholar[]>([]);
+  const [topics, setTopics] = useState<TopicInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
+  const [viewMode, setViewMode] = useState<'cluster' | 'grid'>('cluster');
   const [filters, setFilters] = useState<FilterState>({
     affiliation: '',
     emailDomain: '',
@@ -29,20 +42,37 @@ export default function Home() {
   const [uniqueEmailDomains, setUniqueEmailDomains] = useState<string[]>([]);
 
   useEffect(() => {
-    fetch('/api/scholars')
-      .then((res) => res.json())
-      .then((data: Scholar[]) => {
-        setScholars(data);
-        setFilteredScholars(data);
-        const affiliations = Array.from(new Set(data.map(s => s.affiliation).filter((aff): aff is string => !!aff))).sort();
-        const domains = Array.from(new Set(data.map(s => s.emailDomain).filter((domain): domain is string => !!domain))).sort();
+    Promise.all([
+      fetch('/api/scholars').then(res => res.json()) as Promise<Scholar[]>,
+      fetch('/api/topics').then(res => res.json()) as Promise<TopicInfo[]>
+    ])
+      .then(([scholarData, topicData]) => {
+        setScholars(scholarData);
+        setFilteredScholars(scholarData);
+        setTopics(topicData);
+        
+        const affiliations = Array.from(
+          new Set(
+            scholarData
+              .map(s => s.affiliation)
+              .filter((aff): aff is string => !!aff)
+          )
+        ).sort() as string[];
+  
+        const domains = Array.from(
+          new Set(
+            scholarData
+              .map(s => s.emailDomain)
+              .filter((domain): domain is string => !!domain)
+          )
+        ).sort() as string[];
         
         setUniqueAffiliations(affiliations);
         setUniqueEmailDomains(domains);
         setLoading(false);
       })
       .catch((error) => {
-        console.error('Error fetching scholars:', error);
+        console.error('Error fetching data:', error);
         setLoading(false);
       });
   }, []);
@@ -96,7 +126,7 @@ export default function Home() {
       <div className="max-w-7xl mx-auto">
         {/* Header section */}
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Scholar Performance Tracker</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Research Topics & Scholar Tracker</h1>
           <div className="flex gap-4">
             <button 
               onClick={() => router.push('/scholars')}
@@ -132,6 +162,13 @@ export default function Home() {
                   {Object.values(filters).filter(f => f).length}
                 </span>
               )}
+            </button>
+            <button
+              onClick={() => setViewMode(viewMode === 'cluster' ? 'grid' : 'cluster')}
+              className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50"
+            >
+              {viewMode === 'cluster' ? <Grid size={20} /> : <Layers size={20} />}
+              {viewMode === 'cluster' ? 'Grid View' : 'Cluster View'}
             </button>
           </div>
 
@@ -207,6 +244,11 @@ export default function Home() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Topic Visualization */}
+        <div className="mb-8">
+          <TopicVisualization data={topics} viewMode={viewMode} />
         </div>
       </div>
     </div>

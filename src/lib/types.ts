@@ -83,3 +83,13 @@ emailDomain: string;
 citationRange: string;
 hIndexRange: string;
 }
+
+export interface TopicInfo {
+  topic_id: string;
+  topic_name: string;
+  topic_description: string;
+  general_class14: number;
+  topic_popularity: number;
+  w1: number;
+  w2: number;
+}
