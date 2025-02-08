@@ -1,24 +1,25 @@
-// client/src/app/api/scholars/[id]/route.ts
-// src/app/api/scholars/[id]/route.ts
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+// /api/scholars/[scholarId]/route.ts
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: { scholarId: string } }
 ) {
   try {
-    const id = parseInt(params.id)
-    
-    if (isNaN(id)) {
+    const scholarId = params.scholarId;
+
+    if (!scholarId) {
       return NextResponse.json(
         { error: 'Invalid scholar ID' },
         { status: 400 }
-      )
+      );
     }
 
     const scholar = await prisma.scholar.findUnique({
-      where: { id },
+      where: {
+        scholarId: scholarId
+      },
       include: {
         googleScholarPubs: {
           orderBy: {
@@ -31,22 +32,22 @@ export async function GET(
           }
         }
       }
-    })
+    });
 
     if (!scholar) {
       return NextResponse.json(
         { error: 'Scholar not found' },
         { status: 404 }
-      )
+      );
     }
 
-    return NextResponse.json(scholar)
+    return NextResponse.json(scholar);
 
   } catch (error) {
-    console.error('Error fetching scholar:', error)
+    console.error('Error fetching scholar:', error);
     return NextResponse.json(
       { error: 'Error fetching scholar' },
       { status: 500 }
-    )
+    );
   }
 }

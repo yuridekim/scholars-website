@@ -9,8 +9,8 @@ interface ScholarListProps {
 const ScholarList: React.FC<ScholarListProps> = ({ scholars }) => {
     const router = useRouter();
 
-    const handleScholarClick = (id: number) => {
-        router.push(`/scholars/${id}`);
+    const handleScholarClick = (scholarId: string) => {
+        router.push(`/scholars/${scholarId}`);
     };
 
     return (
@@ -28,7 +28,7 @@ const ScholarList: React.FC<ScholarListProps> = ({ scholars }) => {
                     {scholars.map((scholar) => (
                         <tr
                             key={scholar.id}
-                            onClick={() => handleScholarClick(scholar.id)}
+                            onClick={() => handleScholarClick(scholar.scholarId)}
                             className="hover:bg-gray-50 cursor-pointer transition-colors"
                         >
                             <td className="px-6 py-4 whitespace-nowrap">

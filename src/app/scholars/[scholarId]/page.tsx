@@ -9,7 +9,6 @@ import { CollapsibleGrants } from '@/components/grants';
 import { CollapsiblePublications } from '@/components/publications';
 
 
-// Helper function to extract unique grants
 const extractUniqueGrants = (pubs?: PubmedPub[]): Grant[] => {
   if (!pubs) return []
   const uniqueGrantIds = new Set<string>()
@@ -30,7 +29,6 @@ const extractUniqueGrants = (pubs?: PubmedPub[]): Grant[] => {
   return uniqueGrants
 }
 
-// Loading Component
 const LoadingSpinner = () => (
   <div className="min-h-screen bg-gray-50 p-6">
     <div className="flex items-center justify-center mt-20">
@@ -39,7 +37,6 @@ const LoadingSpinner = () => (
   </div>
 )
 
-// Error Component
 const ScholarNotFound = ({ onBack }: { onBack: () => void }) => (
   <div className="min-h-screen bg-gray-50 p-6">
     <div className="max-w-7xl mx-auto">
@@ -58,7 +55,6 @@ const ScholarNotFound = ({ onBack }: { onBack: () => void }) => (
   </div>
 )
 
-// Profile Information Component
 const ProfileInfo = ({ scholar }: { scholar: Scholar }) => (
   <div>
     <h2 className="text-xl font-semibold mb-4">Profile Information</h2>
@@ -84,7 +80,6 @@ const ProfileInfo = ({ scholar }: { scholar: Scholar }) => (
   </div>
 )
 
-// Metrics Component
 const ScholarMetrics = ({ scholar }: { scholar: Scholar }) => (
   <div>
     <h2 className="text-xl font-semibold mb-4">Metrics</h2>
@@ -108,7 +103,6 @@ const ScholarMetrics = ({ scholar }: { scholar: Scholar }) => (
   </div>
 )
 
-// Grant Component
 const GrantCard = ({ grant }: { grant: Grant }) => (
   <Card>
     <CardContent className="p-4">
@@ -134,7 +128,6 @@ const GrantCard = ({ grant }: { grant: Grant }) => (
   </Card>
 )
 
-// Publications Component
 const Publications = ({ pubs }: { pubs: GoogleScholarPub[] }) => (
   <div className="mt-6">
     <h2 className="text-xl font-semibold mb-4">Recent Publications</h2>
@@ -159,7 +152,6 @@ const Publications = ({ pubs }: { pubs: GoogleScholarPub[] }) => (
   </div>
 )
 
-// Reusable Info Item Component
 const InfoItem = ({ label, value }: { label: string; value: React.ReactNode }) => (
   <div>
     <dt className="text-sm font-medium text-gray-500">{label}</dt>
@@ -167,7 +159,6 @@ const InfoItem = ({ label, value }: { label: string; value: React.ReactNode }) =
   </div>
 )
 
-// Reusable Metric Item Component
 const MetricItem = ({
   label,
   value,
@@ -188,15 +179,14 @@ const MetricItem = ({
   </div>
 )
 
-// Main Component
-export default function ScholarDetailPage({ params }: { params: { id: string } }) {
+export default function ScholarDetailPage({ params }: { params: { scholarId: string } }) {
   const router = useRouter()
   const [scholar, setScholar] = useState<Scholar | null>(null)
   const [loading, setLoading] = useState(true)
   const [grants, setGrants] = useState<Grant[]>([])
 
   useEffect(() => {
-    fetch(`/api/scholars/${params.id}`)
+    fetch(`/api/scholars/${params.scholarId}`)
       .then((res) => res.json())
       .then((data: Scholar) => {
         setScholar(data)
@@ -208,7 +198,7 @@ export default function ScholarDetailPage({ params }: { params: { id: string } }
         console.error('Error fetching scholar:', error)
         setLoading(false)
       })
-  }, [params.id])
+  }, [params.scholarId])
 
   if (loading) return <LoadingSpinner />
   if (!scholar) return <ScholarNotFound onBack={() => router.push('/scholars')} />

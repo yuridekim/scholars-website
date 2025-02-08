@@ -5,7 +5,7 @@ export type Scholar = {
   name: string;
   emailDomain?: string;
   affiliation?: string;
-  scholarId?: string;
+  scholarId: string;
   citedby?: number;
   citedby5y?: number;
   hindex?: number;
