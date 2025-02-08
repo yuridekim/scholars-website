@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { ScatterChart, Scatter, XAxis, YAxis, ZAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import React, { useState, useMemo, useEffect } from 'react';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 interface TopicInfo {
@@ -14,17 +14,16 @@ interface TopicInfo {
   w2: number;
 }
 
-interface ScholarInfo {
+interface ptViz {
   id: string;
   name: string;
   class: number;
-  x: number;
-  y: number;
+  w1: number;
+  w2: number;
 }
 
 interface VisualizationProps {
   topicData: TopicInfo[];
-  scholarData?: ScholarInfo[];
   viewMode?: 'cluster' | 'grid';
 }
 
@@ -45,10 +44,28 @@ const CLASS_COLORS: Record<number, string> = {
   14: '#ff9896'
 };
 
-const DualVisualization: React.FC<VisualizationProps> = ({ topicData, scholarData, viewMode = 'cluster' }) => {
+const DualVisualization: React.FC<VisualizationProps> = ({ topicData, viewMode = 'cluster' }) => {
   const [hoveredClass, setHoveredClass] = useState<number | null>(null);
+  const [ptVizData, setPtVizData] = useState<ptViz[] | undefined>(undefined);
 
-  const uniqueClasses = useMemo(() => 
+  useEffect(() => {
+    async function fetchPtVizData() {
+      try {
+        const response = await fetch('/api/ptviz');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setPtVizData(data);
+      } catch (error) {
+        console.error('Error fetching ptViz data:', error);
+      }
+    }
+
+    fetchPtVizData();
+  }, []);
+
+  const uniqueClasses = useMemo(() =>
     Array.from(new Set(topicData.map(item => item.general_class14))).sort((a, b) => a - b),
     [topicData]
   );
@@ -74,20 +91,20 @@ const DualVisualization: React.FC<VisualizationProps> = ({ topicData, scholarDat
     return null;
   };
 
-  const ScatterPlot = ({ data, dataKey, type }: { data: any[], dataKey: string, type: 'topic' | 'scholar' }) => (
+  const ScatterPlot = ({ data, dataKey, type }: { data: ptViz[] | TopicInfo[], dataKey: keyof ptViz | keyof TopicInfo, type: 'topic' | 'ptViz' }) => (
     <ResponsiveContainer width="100%" height="100%">
       <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
         <CartesianGrid />
-        <XAxis 
-          type="number" 
-          dataKey="w1" 
+        <XAxis
+          type="number"
+          dataKey="w1"
           name="w1"
           domain={viewMode === 'cluster' ? ['auto', 'auto'] : [0, 8]}
           tick={{ fontSize: 12 }}
         />
-        <YAxis 
-          type="number" 
-          dataKey="w2" 
+        <YAxis
+          type="number"
+          dataKey="w2"
           name="w2"
           domain={viewMode === 'cluster' ? ['auto', 'auto'] : [0, 8]}
           tick={{ fontSize: 12 }}
@@ -98,7 +115,7 @@ const DualVisualization: React.FC<VisualizationProps> = ({ topicData, scholarDat
           <Scatter
             key={classNum}
             name={`Class ${classNum}`}
-            data={data.filter(item => item[dataKey] === classNum)}
+            data={data.filter(item => (item as any)[dataKey] === classNum)}
             fill={CLASS_COLORS[classNum]}
             opacity={hoveredClass ? (hoveredClass === classNum ? 1 : 0.3) : 1}
             onMouseEnter={() => setHoveredClass(classNum)}
@@ -117,8 +134,8 @@ const DualVisualization: React.FC<VisualizationProps> = ({ topicData, scholarDat
         </CardHeader>
         <CardContent>
           <div className="h-[500px] w-full">
-            <ScatterPlot 
-              data={topicData} 
+            <ScatterPlot
+              data={topicData}
               dataKey="general_class14"
               type="topic"
             />
@@ -128,21 +145,15 @@ const DualVisualization: React.FC<VisualizationProps> = ({ topicData, scholarDat
 
       <Card className="w-full">
         <CardHeader>
-          <CardTitle>Scholar Distribution by Class</CardTitle>
+          <CardTitle>Interaction Map</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="h-[500px] w-full">
-            {scholarData ? (
-              <ScatterPlot 
-                data={scholarData} 
+              {ptVizData && <ScatterPlot
+                data={ptVizData}
                 dataKey="class"
-                type="scholar"
-              />
-            ) : (
-              <div className="h-full w-full flex items-center justify-center text-gray-500">
-                Scholar visualization coming soon...
-              </div>
-            )}
+                type="ptViz"
+              />}
           </div>
         </CardContent>
       </Card>
