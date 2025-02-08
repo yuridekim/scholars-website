@@ -56,10 +56,5 @@ next-env.d.ts
 .vercel
 .env*.local
 
-# Python
-python-env/
-__pycache__/
-*.pyc
-
 # csv files
 prisma/data
