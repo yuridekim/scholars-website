@@ -230,10 +230,23 @@ export default function ScholarDetailPage({ params }: { params: { scholarId: str
               </div>
             )}
 
+            <div className="mt-8">
+              <h3 className="text-xl font-semibold mb-4">Network Analysis</h3>
+              <div className="w-full h-96 border rounded-lg overflow-hidden">
+                <iframe
+                  src="/network_plot.html"
+                  className="w-full h-full"
+                  style={{ border: 'none' }}
+                  width="100%"
+                  height="100%"
+                />
+              </div>
+            </div>
+
             {grants.length > 0 && <CollapsibleGrants grants={grants} />}
 
             {scholar.googleScholarPubs && scholar.googleScholarPubs.length > 0 && (
-            <CollapsiblePublications publications={scholar.googleScholarPubs} />
+              <CollapsiblePublications publications={scholar.googleScholarPubs} />
             )}
           </CardContent>
         </Card>
