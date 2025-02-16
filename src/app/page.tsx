@@ -50,7 +50,7 @@ export default function Home() {
         setScholars(scholarData);
         setFilteredScholars(scholarData);
         setTopics(topicData);
-        
+
         const affiliations = Array.from(
           new Set(
             scholarData
@@ -58,7 +58,7 @@ export default function Home() {
               .filter((aff): aff is string => !!aff)
           )
         ).sort() as string[];
-  
+
         const domains = Array.from(
           new Set(
             scholarData
@@ -66,7 +66,7 @@ export default function Home() {
               .filter((domain): domain is string => !!domain)
           )
         ).sort() as string[];
-        
+
         setUniqueAffiliations(affiliations);
         setUniqueEmailDomains(domains);
         setLoading(false);
@@ -82,7 +82,7 @@ export default function Home() {
       const matchesSearch = scholar.name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesAffiliation = !filters.affiliation || scholar.affiliation === filters.affiliation;
       const matchesEmailDomain = !filters.emailDomain || scholar.emailDomain === filters.emailDomain;
-      
+
       let matchesCitations = true;
       if (filters.citationRange) {
         const [min, max] = filters.citationRange.split('-').map(Number);
@@ -128,7 +128,7 @@ export default function Home() {
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Research Topics & Scholar Tracker</h1>
           <div className="flex gap-4">
-            <button 
+            <button
               onClick={() => router.push('/scholars')}
               className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
             >
@@ -151,7 +151,7 @@ export default function Home() {
                 className="w-full pl-10 pr-4 py-2 border rounded-lg"
               />
             </div>
-            <button 
+            <button
               onClick={() => setShowFilters(!showFilters)}
               className={`flex items-center gap-2 px-4 py-2 border rounded-lg ${showFilters ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
             >
@@ -248,7 +248,16 @@ export default function Home() {
 
         {/* Topic Visualization */}
         <div className="mb-8">
-        <DualVisualization topicData={topics} />;
+          <DualVisualization topicData={topics} />;
+        </div>
+
+        {/* Embedded HTML */}
+        <div className="mb-8">
+          <iframe
+            src="/fancy_latent_space.html"
+            className="w-full h-[600px] border-0"
+            title="Fancy Latent Space"
+          />
         </div>
       </div>
     </div>
