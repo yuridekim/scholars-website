@@ -180,6 +180,10 @@ export default function ScholarsPage() {
         }
     };
 
+    const handleTitleClick = () => {
+        router.push('/');
+    };
+
 
     if (loading) {
         return (
@@ -195,7 +199,12 @@ export default function ScholarsPage() {
         <div className="min-h-screen bg-gray-50 p-8">
             <div className="max-w-7xl mx-auto">
                 <div className="flex justify-between items-center mb-8">
-                    <h1 className="text-2xl font-bold text-gray-900">Scholar Performance Tracker</h1>
+                    <h1
+                        className="text-2xl font-bold text-gray-900 cursor-pointer"
+                        onClick={handleTitleClick}
+                    >
+                        Scholar Performance Tracker
+                    </h1>
                     <div className="flex gap-4">
                         <button
                             onClick={handleExport}
