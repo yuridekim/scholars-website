@@ -19,6 +19,7 @@ import { ArrowRight } from 'lucide-react';
 import { useScholars } from '@/hooks/useScholars';
 import FilterSection from '@/components/group/FilterSection';
 import { Scholar } from '@/lib/types';
+import { Button } from "@/components/ui/button";
 
 type FilterType = 'name' | 'affiliation' | 'emailDomain' | 'interests';
 type Filter = {
@@ -31,6 +32,8 @@ export default function ComparativeAnalysisPage() {
     const { scholars, loading, error } = useScholars();
     const [group1Filters, setGroup1Filters] = useState<Filter[]>([]);
     const [group2Filters, setGroup2Filters] = useState<Filter[]>([]);
+    const [filteredGroup1Scholars, setFilteredGroup1Scholars] = useState<Scholar[]>([]);
+    const [filteredGroup2Scholars, setFilteredGroup2Scholars] = useState<Scholar[]>([]);
 
     const getFilteredScholars = useCallback((filters: Filter[], allScholars: Scholar[]): Scholar[] => {
         return allScholars.filter(scholar => {
@@ -52,9 +55,6 @@ export default function ComparativeAnalysisPage() {
         });
     }, []);
 
-    const group1Scholars = useCallback(() => getFilteredScholars(group1Filters, scholars), [group1Filters, scholars])();
-    const group2Scholars = useCallback(() => getFilteredScholars(group2Filters, scholars), [group2Filters, scholars])();
-
     const getAverageMetrics = (scholars: Scholar[]) => {
         const total = scholars.length || 1;
         return {
@@ -67,8 +67,23 @@ export default function ComparativeAnalysisPage() {
         }
     }
 
-    const group1Metrics = getAverageMetrics(group1Scholars);
-    const group2Metrics = getAverageMetrics(group2Scholars);
+    const [group1Metrics, setGroup1Metrics] = useState({
+        citations: 0,
+        citations5y: 0,
+        hIndex: 0,
+        hIndex5y: 0,
+        i10Index: 0,
+        totalPub: 0,
+    });
+    const [group2Metrics, setGroup2Metrics] = useState({
+        citations: 0,
+        citations5y: 0,
+        hIndex: 0,
+        hIndex5y: 0,
+        i10Index: 0,
+        totalPub: 0,
+    });
+
 
     const handleFilterChange = (groupId: string, newFilters: Filter[]) => {
         if (groupId === 'group1') {
@@ -108,6 +123,17 @@ export default function ComparativeAnalysisPage() {
         );
     }
 
+    const handleApplyFilters = () => {
+        const group1Scholars = getFilteredScholars(group1Filters, scholars);
+        const group2Scholars = getFilteredScholars(group2Filters, scholars);
+
+        setFilteredGroup1Scholars(group1Scholars);
+        setFilteredGroup2Scholars(group2Scholars);
+
+        setGroup1Metrics(getAverageMetrics(group1Scholars));
+        setGroup2Metrics(getAverageMetrics(group2Scholars));
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen bg-gray-50 p-6">
@@ -136,14 +162,29 @@ export default function ComparativeAnalysisPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div>
                         <h2 className="text-xl font-semibold mb-4">Group 1</h2>
-                        <FilterSection scholars={scholars} />
+                        <FilterSection
+                            scholars={scholars}
+                            filteredScholars={filteredGroup1Scholars}
+                            onFiltersChange={(newFilters) => handleFilterChange('group1', newFilters)}
+                        />
                     </div>
                     <div>
                         <h2 className="text-xl font-semibold mb-4">Group 2</h2>
-                        <FilterSection scholars={scholars} />
+                        <FilterSection
+                            scholars={scholars}
+                            filteredScholars={filteredGroup2Scholars}
+                            onFiltersChange={(newFilters) => handleFilterChange('group2', newFilters)}
+                        />
                     </div>
                 </div>
-
+                <div className="flex justify-center">
+                    <Button 
+                        onClick={handleApplyFilters}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
+                    >
+                        Apply Filters
+                    </Button>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
                     {Object.entries(group1Metrics).map(([metric, value1]) => {
                         const value2 = group2Metrics[metric as keyof typeof group2Metrics];
@@ -153,8 +194,8 @@ export default function ComparativeAnalysisPage() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {[
-                        { scholars: group1Scholars, title: 'Group 1' },
-                        { scholars: group2Scholars, title: 'Group 2' }
+                        { scholars: filteredGroup1Scholars, title: 'Group 1' },
+                        { scholars: filteredGroup2Scholars, title: 'Group 2' }
                     ].map(({ scholars, title }) => (
                         <Card key={title}>
                             <CardHeader>

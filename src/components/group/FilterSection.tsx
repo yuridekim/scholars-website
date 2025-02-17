@@ -1,3 +1,4 @@
+// components/group/FilterSection.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import {
     Select,
@@ -18,6 +19,7 @@ import {
     Legend,
 } from 'chart.js';
 import { Scholar } from '@/lib/types';
+import ComparativeImpactPlot from './Dashboard';
 
 ChartJS.register(
     CategoryScale,
@@ -29,17 +31,20 @@ ChartJS.register(
 );
 
 type FilterType = 'name' | 'affiliation' | 'emailDomain' | 'interests';
-type Filter = {
+export type Filter = {
     id: string;
     type: FilterType;
     value: string;
 };
 
+
 interface FilterSectionProps {
-    scholars: Scholar[];
+  scholars: Scholar[];
+  onFiltersChange: (filters: Filter[]) => void;
+  filteredScholars?: Scholar[];
 }
 
-const FilterSection: React.FC<FilterSectionProps> = ({ scholars }) => {
+const FilterSection: React.FC<FilterSectionProps> = ({ scholars, onFiltersChange, filteredScholars }) => {
     const [filters, setFilters] = useState<Filter[]>([]);
     const [currentFilterType, setCurrentFilterType] = useState<FilterType>('name');
     const [currentFilterValue, setCurrentFilterValue] = useState('');
@@ -57,7 +62,6 @@ const FilterSection: React.FC<FilterSectionProps> = ({ scholars }) => {
         { value: 'interests', label: 'Interests' }
     ];
 
-    // Calculate affiliation counts for the chart
     useEffect(() => {
         const counts: { [key: string]: number } = {};
         scholars.forEach(scholar => {
@@ -132,7 +136,9 @@ const FilterSection: React.FC<FilterSectionProps> = ({ scholars }) => {
                 type: currentFilterType,
                 value: filterValue.trim()
             };
-            setFilters([...filters, newFilter]);
+            const updatedFilters = [...filters, newFilter];
+            setFilters(updatedFilters);
+            onFiltersChange(updatedFilters);
             setCurrentFilterValue('');
             setSuggestions([]);
             setShowSuggestions(false);
@@ -140,7 +146,9 @@ const FilterSection: React.FC<FilterSectionProps> = ({ scholars }) => {
     };
 
     const removeFilter = (filterId: string) => {
-        setFilters(filters.filter(f => f.id !== filterId));
+        const updatedFilters = filters.filter(f => f.id !== filterId);
+        setFilters(updatedFilters);
+        onFiltersChange(updatedFilters);
     };
 
     const chartData = {
@@ -150,16 +158,6 @@ const FilterSection: React.FC<FilterSectionProps> = ({ scholars }) => {
             data: Object.values(affiliationCounts),
             backgroundColor: 'rgba(54, 162, 235, 0.8)',
         }]
-    };
-
-    const chartOptions = {
-        responsive: true,
-        plugins: {
-            title: {
-                display: true,
-                text: 'Affiliation Distribution',
-            },
-        },
     };
 
     return (
@@ -253,7 +251,7 @@ const FilterSection: React.FC<FilterSectionProps> = ({ scholars }) => {
             </div>
 
             <div className="mt-6">
-                <Bar data={chartData} options={chartOptions} />
+            <ComparativeImpactPlot scholars={filteredScholars || scholars}/>
             </div>
         </div>
     );
