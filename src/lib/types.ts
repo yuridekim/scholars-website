@@ -93,3 +93,5 @@ export interface TopicInfo {
   w1: number;
   w2: number;
 }
+
+export type FilterType = 'name' | 'affiliation' | 'emailDomain' | 'interests';
