@@ -6,6 +6,11 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
+import { Button } from "@/components/ui/button";
+import { ArrowRight } from 'lucide-react';
+import FilterSection from '@/components/group/FilterSection';
+import PublicationTrendsChart from "@/components/visualizations/PublicationTrend";
+import { Scholar } from '@/lib/types';
 import {
     Table,
     TableBody,
@@ -14,40 +19,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
-import { ArrowRight } from 'lucide-react';
-import FilterSection from '@/components/group/FilterSection';
-import { Button } from "@/components/ui/button";
 
-const hardcodedScholars = [
-    {
-        scholarId: "12",
-        id: 12,
-        name: "Philip Chow",
-        emailDomain: "@illinois.edu",
-        affiliation: "Unknown affiliation",
-        citedby: 2141,
-        citedby5y: 2545,
-        hindex: 22,
-        hindex5y: 44,
-        i10index: 37,
-        totalPub: 94,
-        interests: ""
-    },
-    {
-        scholarId: "12",
-        id: 12,
-        name: "Stephanie M Carpenter",
-        emailDomain: "@asu.edu",
-        affiliation: "Arizona State University",
-        citedby: 386,
-        citedby5y: 676,
-        hindex: 9,
-        hindex5y: 9,
-        i10index: 9,
-        totalPub: 31,
-        interests: "affect, emotion, engagement, decision making, adaptive intervention optimization"
-    }
-];
 
 type FilterType = 'name' | 'affiliation' | 'emailDomain' | 'interests';
 type Filter = {
@@ -56,44 +28,14 @@ type Filter = {
     value: string;
 };
 
+
 export default function ComparativeAnalysisPage() {
+    const [scholars, setScholars] = useState<Scholar[]>([]);
+    const [loading, setLoading] = useState(true);
     const [group1Filters, setGroup1Filters] = useState<Filter[]>([]);
     const [group2Filters, setGroup2Filters] = useState<Filter[]>([]);
-    const [filteredGroup1Scholars, setFilteredGroup1Scholars] = useState<typeof hardcodedScholars>([]);
-    const [filteredGroup2Scholars, setFilteredGroup2Scholars] = useState<typeof hardcodedScholars>([]);
-
-    const getFilteredScholars = useCallback((filters: Filter[], allScholars: typeof hardcodedScholars): typeof hardcodedScholars => {
-        return allScholars.filter(scholar => {
-            return filters.every(filter => {
-                const value = filter.value.toLowerCase();
-                switch (filter.type) {
-                    case 'name':
-                        return scholar.name?.toLowerCase().includes(value);
-                    case 'affiliation':
-                        return scholar.affiliation?.toLowerCase().includes(value);
-                    case 'emailDomain':
-                        return scholar.emailDomain?.toLowerCase().includes(value);
-                    case 'interests':
-                        return scholar.interests?.toLowerCase().includes(value);
-                    default:
-                        return true;
-                }
-            });
-        });
-    }, []);
-
-    const getAverageMetrics = (scholars: typeof hardcodedScholars) => {
-        const total = scholars.length || 1;
-        return {
-            citations: scholars.reduce((sum, s) => sum + (s.citedby || 0), 0) / total,
-            citations5y: scholars.reduce((sum, s) => sum + (s.citedby5y || 0), 0) / total,
-            hIndex: scholars.reduce((sum, s) => sum + (s.hindex || 0), 0) / total,
-            hIndex5y: scholars.reduce((sum, s) => sum + (s.hindex5y || 0), 0) / total,
-            i10Index: scholars.reduce((sum, s) => sum + (s.i10index || 0), 0) / total,
-            totalPub: scholars.reduce((sum, s) => sum + (s.totalPub || 0), 0) / total,
-        }
-    }
-
+    const [filteredGroup1Scholars, setFilteredGroup1Scholars] = useState<Scholar[]>([]);
+    const [filteredGroup2Scholars, setFilteredGroup2Scholars] = useState<Scholar[]>([]);
     const [group1Metrics, setGroup1Metrics] = useState({
         citations: 0,
         citations5y: 0,
@@ -111,47 +53,115 @@ export default function ComparativeAnalysisPage() {
         totalPub: 0,
     });
 
-    // Auto-update filters when Philip Chow is selected
     useEffect(() => {
-        const philipChowFilter = group1Filters.find(
-            filter => filter.type === 'name' && filter.value.toLowerCase().includes('philip chow')
-        );
+        const fetchScholars = async () => {
+            try {
+                const response = await fetch('/api/scholars');
+                if (!response.ok) throw new Error('Failed to fetch scholars');
+                const data = await response.json();
+                setScholars(data);
+            } catch (error) {
+                console.error('Error fetching scholars:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
 
-        if (philipChowFilter) {
-            // Clear any existing filters in group 2
-            setGroup2Filters([]);
-            
-            // Add a slight delay before setting Stephanie's filter to allow UI to update
-            setTimeout(() => {
-                // Automatically set Stephanie Carpenter as Group 2
-                const carpenterFilter: Filter = {
-                    id: 'auto-carpenter',
-                    type: 'name',
-                    value: 'Stephanie M Carpenter'
-                };
-                setGroup2Filters([carpenterFilter]);
-            
-            // Automatically apply the filters
-            const group1Scholars = getFilteredScholars(group1Filters, hardcodedScholars);
-            const group2Scholars = getFilteredScholars([carpenterFilter], hardcodedScholars);
+        fetchScholars();
+    }, []);
 
-            setFilteredGroup1Scholars(group1Scholars);
-            setFilteredGroup2Scholars(group2Scholars);
+    const getFilteredScholars = useCallback((filters: Filter[], allScholars: Scholar[]): Scholar[] => {
+        console.log('getFilteredScholars executing with:', { filters, allScholars });
+        const results = allScholars.filter(scholar => {
+            return filters.every(filter => {
+                const value = filter.value.toLowerCase();
+                const matches = (() => {
+                    switch (filter.type) {
+                        case 'name':
+                            return scholar.name?.toLowerCase().includes(value);
+                        case 'affiliation':
+                            return scholar.affiliation?.toLowerCase().includes(value);
+                        case 'emailDomain':
+                            return scholar.emailDomain?.toLowerCase().includes(value);
+                        case 'interests':
+                            return scholar.interests?.toLowerCase().includes(value);
+                        default:
+                            return true;
+                    }
+                })();
+                console.log(`Filter ${filter.type}:${value} on ${scholar.name} = ${matches}`);
+                return matches;
+            });
+        });
+        console.log('getFilteredScholars returning:', results);
+        return results;
+    }, []);
 
-            setGroup1Metrics(getAverageMetrics(group1Scholars));
-            setGroup2Metrics(getAverageMetrics(group2Scholars));
-            }, 100); // 100ms delay
+    useEffect(() => {
+        console.log('Filter effect triggered:', {
+            group1Filters,
+            scholars
+        });
+
+        if (group1Filters.length > 0) {
+            const filteredScholars = getFilteredScholars(group1Filters, scholars);
+            console.log('Setting filtered group 1 scholars:', filteredScholars);
+            setFilteredGroup1Scholars(filteredScholars);
         } else {
-            // Clear group 2 filters when Philip Chow is removed
-            setGroup2Filters([]);
+            console.log('No filters, setting empty array');
+            setFilteredGroup1Scholars([]);
         }
-    }, [group1Filters, getFilteredScholars]);
+    }, [group1Filters, getFilteredScholars, scholars]);
+
+    useEffect(() => {
+        console.log('Current state:', {
+            group1Filters,
+            filteredGroup1Scholars,
+            group2Filters,
+            filteredGroup2Scholars
+        });
+    }, [group1Filters, filteredGroup1Scholars, group2Filters, filteredGroup2Scholars]);
 
     const handleFilterChange = (groupId: string, newFilters: Filter[]) => {
+        console.log('handleFilterChange:', { groupId, newFilters });
         if (groupId === 'group1') {
             setGroup1Filters(newFilters);
+
+            const filteredScholars = getFilteredScholars(newFilters, scholars);
+            console.log('Immediate filter results:', filteredScholars);
+            setFilteredGroup1Scholars(filteredScholars);
         } else {
             setGroup2Filters(newFilters);
+        }
+    };
+
+    const handleApplyFilters = () => {
+        console.log('handleApplyFilters triggered');
+        const group1Scholars = getFilteredScholars(group1Filters, scholars);
+        const group2Scholars = getFilteredScholars(group2Filters, scholars);
+
+        console.log('Apply results:', {
+            group1Scholars,
+            group2Scholars
+        });
+
+        setFilteredGroup1Scholars(group1Scholars);
+        setFilteredGroup2Scholars(group2Scholars);
+
+        setGroup1Metrics(getAverageMetrics(group1Scholars));
+        setGroup2Metrics(getAverageMetrics(group2Scholars));
+    };
+
+    const getAverageMetrics = (scholars: Scholar[]) => {
+        console.log('getAverageMetrics executing with:', scholars);
+        const total = scholars.length || 1;
+        return {
+            citations: scholars.reduce((sum, s) => sum + (s.citedby || 0), 0) / total,
+            citations5y: scholars.reduce((sum, s) => sum + (s.citedby5y || 0), 0) / total,
+            hIndex: scholars.reduce((sum, s) => sum + (s.hindex || 0), 0) / total,
+            hIndex5y: scholars.reduce((sum, s) => sum + (s.hindex5y || 0), 0) / total,
+            i10Index: scholars.reduce((sum, s) => sum + (s.i10index || 0), 0) / total,
+            totalPub: scholars.reduce((sum, s) => sum + (s.totalPub || 0), 0) / total,
         }
     };
 
@@ -183,18 +193,49 @@ export default function ComparativeAnalysisPage() {
                 </CardContent>
             </Card>
         );
-    }
-
-    const handleApplyFilters = () => {
-        const group1Scholars = getFilteredScholars(group1Filters, hardcodedScholars);
-        const group2Scholars = getFilteredScholars(group2Filters, hardcodedScholars);
-
-        setFilteredGroup1Scholars(group1Scholars);
-        setFilteredGroup2Scholars(group2Scholars);
-
-        setGroup1Metrics(getAverageMetrics(group1Scholars));
-        setGroup2Metrics(getAverageMetrics(group2Scholars));
     };
+
+    useEffect(() => {
+        console.log('Philip Chow effect checking filters:', group1Filters);
+        const philipChowFilter = group1Filters.find(
+            filter => filter.type === 'name' && filter.value.toLowerCase().includes('philip chow')
+        );
+
+        if (philipChowFilter) {
+            console.log('Philip Chow found in filters');
+            setGroup2Filters([]);
+
+            setTimeout(() => {
+                const carpenterFilter: Filter = {
+                    id: 'auto-carpenter',
+                    type: 'name',
+                    value: 'Stephanie M Carpenter'
+                };
+
+                const group1Scholars = getFilteredScholars(group1Filters, scholars);
+                const group2Scholars = getFilteredScholars([carpenterFilter], scholars);
+
+                console.log('Auto-update scholar results:', {
+                    group1Scholars,
+                    group2Scholars
+                });
+
+                setGroup2Filters([carpenterFilter]);
+                setFilteredGroup1Scholars(group1Scholars);
+                setFilteredGroup2Scholars(group2Scholars);
+
+                setGroup1Metrics(getAverageMetrics(group1Scholars));
+                setGroup2Metrics(getAverageMetrics(group2Scholars));
+            }, 100);
+        }
+    }, [group1Filters, getFilteredScholars, scholars]);
+
+
+    if (loading) {
+        return <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
+            <div className="text-xl">Loading scholars...</div>
+        </div>;
+    }
 
     return (
         <div className="min-h-screen bg-gray-50 p-6">
@@ -202,18 +243,18 @@ export default function ComparativeAnalysisPage() {
                 <h1 className="text-3xl font-bold">Comparative Scholar Analysis</h1>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {group1Filters.some(f => f.value.toLowerCase().includes('philip chow')) && 
-                     group2Filters.some(f => f.value.toLowerCase().includes('stephanie')) && (
-                        <div className="lg:col-span-2 bg-blue-50 p-4 rounded-lg mb-4">
-                            <p className="text-blue-700 text-center">
-                                Philip Chow is a 0.958380792 match with Stephanie M Carpenter
-                            </p>
-                        </div>
-                    )}
+                    {group1Filters.some(f => f.value.toLowerCase().includes('philip chow')) &&
+                        group2Filters.some(f => f.value.toLowerCase().includes('stephanie')) && (
+                            <div className="lg:col-span-2 bg-blue-50 p-4 rounded-lg mb-4">
+                                <p className="text-blue-700 text-center">
+                                    Philip Chow is a 95.84% match with Stephanie M Carpenter
+                                </p>
+                            </div>
+                        )}
                     <div>
                         <h2 className="text-xl font-semibold mb-4">Group 1</h2>
                         <FilterSection
-                            scholars={hardcodedScholars}
+                            scholars={scholars}
                             filteredScholars={filteredGroup1Scholars}
                             onFiltersChange={(newFilters) => handleFilterChange('group1', newFilters)}
                         />
@@ -221,7 +262,7 @@ export default function ComparativeAnalysisPage() {
                     <div>
                         <h2 className="text-xl font-semibold mb-4">Group 2</h2>
                         <FilterSection
-                            scholars={hardcodedScholars}
+                            scholars={scholars}
                             filteredScholars={filteredGroup2Scholars}
                             onFiltersChange={(newFilters) => handleFilterChange('group2', newFilters)}
                         />
@@ -229,7 +270,7 @@ export default function ComparativeAnalysisPage() {
                 </div>
 
                 <div className="flex justify-center">
-                    <Button 
+                    <Button
                         onClick={handleApplyFilters}
                         className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
                     >
@@ -243,6 +284,9 @@ export default function ComparativeAnalysisPage() {
                         return renderMetricComparison(metric, value1, value2);
                     })}
                 </div>
+
+                {/* Publication Trends Graph */}
+                <PublicationTrendsChart scholars={[...filteredGroup1Scholars, ...filteredGroup2Scholars]} />
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {[
