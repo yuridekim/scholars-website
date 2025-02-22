@@ -13,6 +13,22 @@ interface TopicInfo {
   w2: number;
 }
 
+interface PaperTopic {
+  id: number;
+  paperId: string;
+  title: string;
+  pubYear?: number;
+  abstract?: string;
+  journal?: string;
+  publisher?: string;
+  numCitations?: number;
+  generalClass14?: number;
+  vector2dComponent1: number;
+  vector2dComponent2: number;
+  scholarId: string;
+  scholarName: string;
+}
+
 interface ptViz {
   id: string;
   name: string;
@@ -23,6 +39,7 @@ interface ptViz {
 
 interface VisualizationProps {
   topicData: TopicInfo[];
+  paperData?: PaperTopic[];
   viewMode?: 'cluster' | 'grid';
 }
 
@@ -43,9 +60,12 @@ const CLASS_COLORS: Record<number, string> = {
   14: '#ff9896'
 };
 
-const DualVisualization: React.FC<VisualizationProps> = ({ topicData, viewMode = 'cluster' }) => {
+const DualVisualization: React.FC<VisualizationProps> = ({ topicData, paperData = [], viewMode = 'cluster' }) => {
   const [hoveredClass, setHoveredClass] = useState<number | null>(null);
   const [ptVizData, setPtVizData] = useState<ptViz[] | undefined>(undefined);
+  const [paperVizData, setPaperVizData] = useState<PaperTopic[] | undefined>(undefined);
+  const [scholarError, setScholarError] = useState<string | null>(null);
+  const [paperError, setPaperError] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -57,12 +77,30 @@ const DualVisualization: React.FC<VisualizationProps> = ({ topicData, viewMode =
         }
         const data = await response.json();
         setPtVizData(data);
+        setScholarError(null);
       } catch (error) {
         console.error('Error fetching ptViz data:', error);
+        setScholarError('Failed to load scholar data. Please try again later.');
+      }
+    }
+
+    async function fetchPaperVizData() {
+      try {
+        const response = await fetch('/api/paperviz');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setPaperVizData(data);
+        setPaperError(null);
+      } catch (error) {
+        console.error('Error fetching papers visualization data:', error);
+        setPaperError('Failed to load paper data. Please try again later.');
       }
     }
 
     fetchPtVizData();
+    fetchPaperVizData();
   }, []);
 
   const uniqueClasses = useMemo(() =>
@@ -75,15 +113,24 @@ const DualVisualization: React.FC<VisualizationProps> = ({ topicData, viewMode =
       const item = payload[0].payload;
       return (
         <div className="bg-white p-4 shadow-lg rounded-lg border">
-          <p className="font-semibold">Class {item.general_class14 || item.class}</p>
+          <p className="font-semibold">Class {item.general_class14 || item.class || item.generalClass14}</p>
           <p className="text-sm text-gray-600">
-            Type: {item.topic_name ? 'Topic' : 'Scholar'}
+            Type: {item.topic_name ? 'Topic' : item.title ? 'Paper' : 'Scholar'}
           </p>
           {item.topic_name && (
-            <p className="text-sm text-gray-600">Topic: {item.topic_name}</p>
+            <>
+              <p className="text-sm text-gray-600">Topic: {item.topic_name}</p>
+              <p className="text-sm text-gray-600">Popularity: {item.topic_popularity.toFixed(2)}</p>
+            </>
           )}
-          {item.topic_popularity && (
-            <p className="text-sm text-gray-600">Popularity: {item.topic_popularity.toFixed(2)}</p>
+          {item.title && (
+            <>
+              <p className="text-sm text-gray-600 max-w-md truncate">Title: {item.title}</p>
+              {item.journal && <p className="text-sm text-gray-600">Journal: {item.journal}</p>}
+              {item.numCitations !== undefined && (
+                <p className="text-sm text-gray-600">Citations: {item.numCitations}</p>
+              )}
+            </>
           )}
           {item.name && (
             <p className="text-sm text-gray-600">Scholar: {item.name}</p>
@@ -94,7 +141,7 @@ const DualVisualization: React.FC<VisualizationProps> = ({ topicData, viewMode =
     return null;
   };
 
-  const ScatterPlot = ({ data, dataKey, type }: { data: ptViz[] | TopicInfo[], dataKey: keyof ptViz | keyof TopicInfo, type: 'topic' | 'ptViz' }) => (
+  const CombinedScatterPlot = () => (
     <ResponsiveContainer width="100%" height="100%">
       <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
         <CartesianGrid />
@@ -115,86 +162,107 @@ const DualVisualization: React.FC<VisualizationProps> = ({ topicData, viewMode =
         <Tooltip content={<CustomTooltip />} />
         <Legend />
 
-        {type === 'topic' && uniqueClasses.map((classNum) => (
+        {ptVizData && (
           <Scatter
-            key={classNum}
-            name={`Class ${classNum}`}
-            data={data.filter(item => (item as any)[dataKey] === classNum)}
+            name="Scholars"
+            data={ptVizData}
+            fill="none"
+            stroke="#808080"
+            strokeWidth={2}
+            opacity={hoveredClass ? 0.3 : 1}
+            shape={(props: any) => {
+              const centerX = props.cx;
+              const centerY = props.cy;
+              const size = 8;
+              const pathData = `M ${centerX} ${centerY - size / 2 * Math.sqrt(3) / 2} L ${centerX - size / 2} ${centerY + size / 2 * Math.sqrt(3) / 2} L ${centerX + size / 2} ${centerY + size / 2 * Math.sqrt(3) / 2} Z`;
+              return (
+                <path
+                  d={pathData}
+                  style={{
+                    fill: "none",
+                    stroke: "#808080",
+                    strokeWidth: 2
+                  }}
+                />
+              );
+            }}
+            onClick={(event) => {
+              const dataPoint = ptVizData?.find(item => item.w1 === event.w1 && item.w2 === event.w2);
+              if (dataPoint?.id) {
+                router.push(`/scholars/${dataPoint.id}`);
+              }
+            }}
+            style={{ cursor: 'pointer' }}
+          />
+        )}
+
+        {uniqueClasses.map((classNum) => (
+          <Scatter
+            key={`topic-${classNum}`}
+            name={`Topics Class ${classNum}`}
+            data={topicData.filter(item => item.general_class14 === classNum)}
             fill={CLASS_COLORS[classNum]}
-            opacity={hoveredClass ? (hoveredClass === classNum ? 1 : 0.3) : 1}
+            opacity={hoveredClass ? (hoveredClass === classNum ? 1 : 0.3) : 0.8}
+            shape="circle"
             onMouseEnter={() => setHoveredClass(classNum)}
             onMouseLeave={() => setHoveredClass(null)}
           />
         ))}
+      </ScatterChart>
+    </ResponsiveContainer>
+  );
 
-        {type === 'ptViz' && (
-          <>
-            {}
-            <Scatter
-              name="Scholars"
-              data={ptVizData}
-              fill="none"
-              stroke="#808080"
-              strokeWidth={2}
-              opacity={hoveredClass ? 0.3 : 1}
-              shape={(props: any) => {
-                const centerX = props.cx;
-                const centerY = props.cy;
-                const size = 8;
-                const pathData = `M ${centerX} ${centerY - size / 2 * Math.sqrt(3) / 2} L ${centerX - size / 2} ${centerY + size / 2 * Math.sqrt(3) / 2} L ${centerX + size / 2} ${centerY + size / 2 * Math.sqrt(3) / 2} Z`;
-                return (
-                  <path
-                    d={pathData}
-                    style={{
-                      fill: "none",
-                      stroke: "#808080",
-                      strokeWidth: 2
-                    }}
-                  />
-                );
-              }}
-              onClick={(event) => {
-                const dataPoint = ptVizData?.find(item => item.w1 === event.w1 && item.w2 === event.w2);
-                if (dataPoint?.id) {
-                  router.push(`/scholars/${dataPoint.id}`);
-                }
-              }}
-              style={{ cursor: 'pointer' }}
-            />
+  const PaperScatterPlot = () => (
+    <ResponsiveContainer width="100%" height="100%">
+      <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+        <CartesianGrid />
+        <XAxis
+          type="number"
+          dataKey="vector2dComponent1"
+          name="Component 1"
+          domain={viewMode === 'cluster' ? ['auto', 'auto'] : [0, 8]}
+          tick={{ fontSize: 12 }}
+        />
+        <YAxis
+          type="number"
+          dataKey="vector2dComponent2"
+          name="Component 2"
+          domain={viewMode === 'cluster' ? ['auto', 'auto'] : [0, 8]}
+          tick={{ fontSize: 12 }}
+        />
+        <Tooltip content={<CustomTooltip />} />
+        <Legend />
 
-            {}
-            {uniqueClasses.map((classNum) => (
-              <Scatter
-                key={`topic-${classNum}`}
-                name={`Topics Class ${classNum}`}
-                data={topicData.filter(item => item.general_class14 === classNum)}
-                fill={CLASS_COLORS[classNum]}
-                opacity={hoveredClass ? (hoveredClass === classNum ? 1 : 0.3) : 0.8}
-                shape="circle"
-                onMouseEnter={() => setHoveredClass(classNum)}
-                onMouseLeave={() => setHoveredClass(null)}
-              />
-            ))}
-          </>
-        )}
+        {paperVizData && uniqueClasses.map((classNum) => (
+          <Scatter
+            key={`paper-${classNum}`}
+            name={`Papers Class ${classNum}`}
+            data={paperVizData.filter(item => item.generalClass14 === classNum)}
+            fill={CLASS_COLORS[classNum]}
+            opacity={hoveredClass ? (hoveredClass === classNum ? 1 : 0.3) : 0.8}
+            shape="circle"
+            onMouseEnter={() => setHoveredClass(classNum)}
+            onMouseLeave={() => setHoveredClass(null)}
+          />
+        ))}
       </ScatterChart>
     </ResponsiveContainer>
   );
 
   return (
-    <div className="grid grid-cols-1 gap-4"> {}
+    <div className="grid grid-cols-1 gap-4">
       <Card className="w-full">
         <CardHeader>
-          <CardTitle>Combined Interaction Map</CardTitle>
+          <CardTitle>Combined Scholar and Topic Map</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[700px] w-full"> {}
-            {ptVizData && (
-              <ScatterPlot
-                data={ptVizData}
-                dataKey="class"
-                type="ptViz"
-              />
+          <div className="h-[700px] w-full">
+            {scholarError ? (
+              <p className="text-center text-red-500">{scholarError}</p>
+            ) : !ptVizData ? (
+              <p className="text-center text-gray-500">Loading scholar data...</p>
+            ) : (
+              <CombinedScatterPlot />
             )}
           </div>
         </CardContent>
@@ -202,15 +270,17 @@ const DualVisualization: React.FC<VisualizationProps> = ({ topicData, viewMode =
 
       <Card className="w-full">
         <CardHeader>
-          <CardTitle>Topic Distribution by Class</CardTitle>
+          <CardTitle>Distribution of Papers</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[500px] w-full">
-            <ScatterPlot
-              data={topicData}
-              dataKey="general_class14"
-              type="topic"
-            />
+          <div className="h-96">
+            {paperError ? (
+              <p className="text-center text-red-500">{paperError}</p>
+            ) : !paperVizData ? (
+              <p className="text-center text-gray-500">Loading paper data...</p>
+            ) : (
+              <PaperScatterPlot />
+            )}
           </div>
         </CardContent>
       </Card>
