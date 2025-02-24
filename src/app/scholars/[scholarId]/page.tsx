@@ -179,14 +179,14 @@ const MetricItem = ({
   </div>
 )
 
-export default function ScholarDetailPage({ params }: { params: { scholarId: string } }) {
+function ScholarDetail({ scholarId }: { scholarId: string }) {
   const router = useRouter()
   const [scholar, setScholar] = useState<Scholar | null>(null)
   const [loading, setLoading] = useState(true)
   const [grants, setGrants] = useState<Grant[]>([])
 
   useEffect(() => {
-    fetch(`/api/scholars/${params.scholarId}`)
+    fetch(`/api/scholars/${scholarId}`)
       .then((res) => res.json())
       .then((data: Scholar) => {
         setScholar(data)
@@ -198,7 +198,7 @@ export default function ScholarDetailPage({ params }: { params: { scholarId: str
         console.error('Error fetching scholar:', error)
         setLoading(false)
       })
-  }, [params.scholarId])
+  }, [scholarId])
 
   if (loading) return <LoadingSpinner />
   if (!scholar) return <ScholarNotFound onBack={() => router.push('/scholars')} />
@@ -253,4 +253,8 @@ export default function ScholarDetailPage({ params }: { params: { scholarId: str
       </div>
     </div>
   )
+}
+
+export default function Page({ params }: { params: { scholarId: string } }) {
+  return <ScholarDetail scholarId={params.scholarId} />
 }
