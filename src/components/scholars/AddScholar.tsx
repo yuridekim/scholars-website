@@ -55,7 +55,8 @@ const AddScholar: React.FC<AddScholarProps> = ({
               className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors"
               disabled={searchLoading}
             >
-              {searchLoading ? 'Searching...' : 'Search Google Scholar'}
+              {searchLoading ? 'Searching...' : 'Search Scholar'} 
+              {/* only one scholar -> openalex*/}
             </button>
             <Separator orientation="vertical" className="h-8" />
             <button
