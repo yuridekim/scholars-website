@@ -129,6 +129,8 @@ const PieResearchMethods: React.FC = () => {
           throw new Error(`Missing required environment variables: ${!FOUNDRY_URL ? 'FOUNDRY_URL ' : ''}${!ONTOLOGY_RID ? 'ONTOLOGY_RID ' : ''}`);
         }
         
+        // Get Object Spec
+        // https://www.palantir.com/docs/foundry/api/v2/ontologies-v2-resources/ontology-objects/list-objects/
         const proxyResponse = await fetch('/api/foundry-proxy', {
           method: 'POST',
           headers: {

@@ -1,4 +1,8 @@
+// src/app/api/auth/token-exchange/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+
+// docs for error codes
+// https://www.palantir.com/docs/foundry/api/v2/general/overview/errors/?productId=foundry&slug=general&slug=overview&slug=errors
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,11 +13,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing authorization code' }, { status: 400 });
     }
     
-    const FOUNDRY_URL = process.env.FOUNDRY_URL || process.env.NEXT_PUBLIC_FOUNDRY_URL;
-    const CLIENT_ID = process.env.CLIENT_ID || process.env.NEXT_PUBLIC_CLIENT_ID;
+    const FOUNDRY_URL = process.env.FOUNDRY_URL;
+    const CLIENT_ID = process.env.CLIENT_ID;
     const CLIENT_SECRET = process.env.CLIENT_SECRET;
-    
-    const REDIRECT_URI = process.env.REDIRECT_URI || process.env.NEXT_PUBLIC_REDIRECT_URI;
+    const REDIRECT_URI = process.env.REDIRECT_URI;
     
     if (!FOUNDRY_URL || !CLIENT_ID || !CLIENT_SECRET || !REDIRECT_URI) {
       console.error('Missing environment variables', {
