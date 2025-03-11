@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, Legend, Tooltip } from 'recharts';
+import { initiateAuthFlow } from '@/hooks/auth-utils';
 
 interface DataItem {
   name: string;
@@ -17,85 +18,156 @@ interface ApiError extends Error {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82ca9d', '#ffc658'];
 
-const ScholarMethodsPieChart: React.FC = () => {
+export const useFoundryAuth = () => {
+  const [tokenState, setTokenState] = useState({
+    accessToken: null as string | null,
+    refreshToken: null as string | null,
+    expiresAt: null as number | null,
+    isAuthenticated: false
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    const loadStoredToken = () => {
+      try {
+        console.log("Checking for authentication...");
+        if (typeof window === 'undefined') {
+          setLoading(false);
+          return;
+        }
+        
+        const token = localStorage.getItem('foundry_access_token');
+        const refreshToken = localStorage.getItem('foundry_refresh_token');
+        const expiresAtStr = localStorage.getItem('foundry_token_expires');
+        
+        if (token) {
+          const expiresAt = expiresAtStr ? parseInt(expiresAtStr, 10) : null;
+          const isValid = expiresAt ? Date.now() < expiresAt : false;
+          console.log("Token is valid:", isValid);
+          
+          setTokenState({
+            accessToken: token,
+            refreshToken,
+            expiresAt,
+            isAuthenticated: isValid
+          });
+        }
+        setLoading(false);
+      } catch (err) {
+        console.error('Error loading auth state:', err);
+        setError(err instanceof Error ? err : new Error(String(err)));
+        setLoading(false);
+      }
+    };
+
+    loadStoredToken();
+  }, []);
+
+  const login = async () => {
+    try {
+      console.log("Initiating auth flow...");
+      await initiateAuthFlow();
+    } catch (err) {
+      console.error('Error initiating auth flow:', err);
+      setError(err instanceof Error ? err : new Error(String(err)));
+      alert(`Authentication error: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('foundry_access_token');
+    localStorage.removeItem('foundry_refresh_token');
+    localStorage.removeItem('foundry_token_expires');
+    
+    setTokenState({
+      accessToken: null,
+      refreshToken: null,
+      expiresAt: null,
+      isAuthenticated: false
+    });
+  };
+
+  return {
+    ...tokenState,
+    loading,
+    error,
+    login,
+    logout
+  };
+};
+
+const PieResearchMethods: React.FC = () => {
+  const { 
+    isAuthenticated, 
+    accessToken, 
+    loading: authLoading, 
+    error: authError,
+    login 
+  } = useFoundryAuth();
+  
   const [data, setData] = useState<DataItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiError | null>(null);
 
   useEffect(() => {
-    const initializeAndFetch = async () => {
+    if (!isAuthenticated || !accessToken) {
+      setLoading(false);
+      return;
+    }
+    
+    const fetchScholars = async () => {
       try {
         if (typeof window === 'undefined') {
           return;
         }
         
         const FOUNDRY_URL = process.env.NEXT_PUBLIC_FOUNDRY_URL;
-        const CLIENT_ID = process.env.NEXT_PUBLIC_CLIENT_ID;
         const ONTOLOGY_RID = process.env.NEXT_PUBLIC_ONTOLOGY_RID;
-        const CLIENT_SECRET = process.env.NEXT_PUBLIC_CLIENT_SECRET;
-
-        const SCOPES = [
-          "api:ontologies-read",
-          "api:ontologies-write",
-          "api:mediasets-read",
-          "api:mediasets-write"
-        ];
-
-        if (!FOUNDRY_URL || !CLIENT_ID || !ONTOLOGY_RID || !CLIENT_SECRET) {
-            throw new Error(`Missing required environment variables: ${!FOUNDRY_URL ? 'FOUNDRY_URL ' : ''}${!CLIENT_ID ? 'CLIENT_ID ' : ''}${!ONTOLOGY_RID ? 'ONTOLOGY_RID ' : ''}${!CLIENT_SECRET ? 'CLIENT_SECRET' : ''}`);
+        
+        if (!FOUNDRY_URL || !ONTOLOGY_RID) {
+          throw new Error(`Missing required environment variables: ${!FOUNDRY_URL ? 'FOUNDRY_URL ' : ''}${!ONTOLOGY_RID ? 'ONTOLOGY_RID ' : ''}`);
         }
-
-        const osdkOauth = await import('@osdk/oauth');
-        const osdkClient = await import('@osdk/client');
-        const scholarsSdk = await import('@scholars-website/sdk');
         
-        const auth = osdkOauth.createConfidentialOauthClient(CLIENT_ID, CLIENT_SECRET, FOUNDRY_URL, SCOPES);
-        const client = osdkClient.createClient(FOUNDRY_URL, ONTOLOGY_RID, auth);
-
-        const allScholars: any[] = [];
-        let nextPageToken: string | undefined = undefined;
-        let hasMorePages = true;
+        const proxyResponse = await fetch('/api/foundry-proxy', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            endpoint: `/api/v2/ontologies/${ONTOLOGY_RID}/objects/Scholar`, 
+            token: accessToken,
+            method: 'GET',
+            requestBody: {
+              pageSize: 100
+            }
+          })
+        });
         
-        const Scholar = scholarsSdk.Scholar;
-        
-        while (hasMorePages) {
-          const fetchArgs: any = { $pageSize: 100 };
-          if (nextPageToken) {
-            fetchArgs.$nextPageToken = nextPageToken;
+        if (!proxyResponse.ok) {
+          let errorMessage = `API request failed: ${proxyResponse.status} ${proxyResponse.statusText}`;
+          
+          try {
+            const errorData = await proxyResponse.json();
+            errorMessage += `. Details: ${JSON.stringify(errorData)}`;
+          } catch (e) {
           }
           
-          const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Request timed out after 30 seconds')), 30000);
-          });
-          
-          const clientScholar = client(Scholar);
-          
-          if (!clientScholar.fetchPage) {
-            throw new Error('fetchPage method not found on client(Scholar) object');
-          }
-          
-          const fetchPagePromise = clientScholar.fetchPage(fetchArgs);
-          const response = await Promise.race([fetchPagePromise, timeoutPromise]) as any;
-          
-          if (response.data) {
-            allScholars.push(...response.data);
-          }
-          
-          if (response.nextPageToken) {
-            nextPageToken = response.nextPageToken;
-          } else {
-            hasMorePages = false;
-          }
-          
+          throw new Error(errorMessage);
         }
-
-        processScholarsData(allScholars);
         
+        const responseData = await proxyResponse.json();
+        
+        if (responseData.data && Array.isArray(responseData.data)) {
+          processScholarsData(responseData.data);
+        } else {
+          console.error('Unexpected response structure:', responseData);
+          throw new Error('Unexpected response structure from API');
+        }
       } catch (error) {
+        console.error('Error fetching scholars:', error);
+        
         const err = error as Error;
-        
-        console.error('Error in initializeAndFetch:', err);
-        
         const enhancedError: ApiError = new Error(
           err instanceof Error ? err.message : String(err)
         );
@@ -109,6 +181,7 @@ const ScholarMethodsPieChart: React.FC = () => {
         }
         
         setError(enhancedError);
+      } finally {
         setLoading(false);
       }
     };
@@ -118,7 +191,7 @@ const ScholarMethodsPieChart: React.FC = () => {
         const methodsMap: Record<string, number> = {};
         
         for (const scholar of scholars) {
-          const method = scholar.methods || 'Not Specified';
+          const method = scholar.methods || scholar.method || scholar.researchMethods || 'Not Specified';
           
           if (!methodsMap[method]) {
             methodsMap[method] = 0;
@@ -137,12 +210,38 @@ const ScholarMethodsPieChart: React.FC = () => {
         
         setData(chartData);
       }
-      
-      setLoading(false);
     };
     
-    initializeAndFetch();
-  }, []);
+    fetchScholars();
+  }, [isAuthenticated, accessToken]);
+
+  if (authLoading) {
+    return <div>Checking authentication...</div>;
+  }
+
+  if (authError) {
+    return (
+      <div className="error-container">
+        <h3>Authentication Error</h3>
+        <p>{authError.message}</p>
+        <button onClick={login} className="login-button">
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !accessToken) {
+    return (
+      <div className="login-container">
+        <h3>Authentication Required</h3>
+        <p>Please log in to view the scholar data</p>
+        <button onClick={login} className="login-button">
+          Log in with Foundry
+        </button>
+      </div>
+    );
+  }
 
   if (loading) {
     return <div>Loading scholar data...</div>;
@@ -191,4 +290,4 @@ const ScholarMethodsPieChart: React.FC = () => {
   );
 };
 
-export default ScholarMethodsPieChart;
+export default PieResearchMethods;

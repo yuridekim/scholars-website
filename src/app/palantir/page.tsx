@@ -1,15 +1,12 @@
 'use client';
 
 import React from 'react';
-import ScholarMethodsPieChart from '@/components/palantir/PieResearchMethods'; 
+import PieResearchMethods from '@/components/palantir/PieResearchMethods';
 
 export default function PalantirPage() {
   return (
-    <div>
-      <h1>Scholars Dashboard</h1>
-      <div>
-        <ScholarMethodsPieChart />
-      </div>
+    <div className="palantir-container">
+      <PieResearchMethods />
     </div>
   );
 }
