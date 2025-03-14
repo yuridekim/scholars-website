@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { GoogleScholarSearchResult } from '@/lib/types';
 import { ManualScholarEntry, ScholarStats, ScholarList, AddScholar, ScholarFilters } from '@/components/scholars';
 import { useScholars } from '@/hooks/useScholars';
 import { Download } from 'lucide-react';
@@ -21,19 +20,18 @@ export default function ScholarsPage() {
         uniqueAffiliations,
         uniqueEmailDomains,
         stats,
+        // No refreshScholars function
     } = useScholars();
 
     const [searchLoading, setSearchLoading] = useState(false);
-    const [searchResults, setSearchResults] = useState<GoogleScholarSearchResult[] | null>(null);
-    const [selectedSearchResult, setSelectedSearchResult] = useState<GoogleScholarSearchResult | null>(null);
     const [showManualEntry, setShowManualEntry] = useState(false);
     const [manualEntry, setManualEntry] = useState({
-      name: '',
-      affiliation: '',
-      emailDomain: '',
-      citedby: 0,
-      hindex: 0
-  });
+        name: '',
+        affiliation: '',
+        emailDomain: '',
+        citedby: 0,
+        hindex: 0
+    });
 
     const [filterShowState, setFilterShowState] = useState(false);
 
@@ -56,91 +54,7 @@ export default function ScholarsPage() {
         link.click();
     };
 
-    const handleGoogleScholarSearch = async () => {
-        setSearchLoading(true);
-        //setError(null); // Access error through the hook if needed.
-        setSearchResults(null);
-        setSelectedSearchResult(null);
-
-
-        try {
-            // Mock Google Scholar Search API call (replace with real logic)
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            const mockResults: GoogleScholarSearchResult[] = [
-                {
-                    name: searchQuery,
-                    affiliation: 'Mock University 1',
-                    emailDomain: 'mock1.edu',
-                    scholarId: "mock_google_id1",
-                    citedby: Math.floor(Math.random() * 5000),
-                    hindex: Math.floor(Math.random() * 100),
-                },
-                {
-                    name: searchQuery,
-                    affiliation: 'Mock University 2',
-                    emailDomain: 'mock2.edu',
-                    scholarId: "mock_google_id2",
-                    citedby: Math.floor(Math.random() * 5000),
-                    hindex: Math.floor(Math.random() * 100),
-                }
-            ]
-
-            setSearchResults(mockResults);
-        } catch (err) {
-            console.error('Error during Google Scholar Search:', err);
-            //setError('Failed to fetch data from Google Scholar.'); //Access error through the hook if needed.
-        } finally {
-            setSearchLoading(false);
-        }
-    };
-
-
-    const handleAddScholar = async () => {
-        //if (!selectedSearchResult) {
-        //    setError('Please select a scholar to add')
-        //    return;
-        //}
-        //setError(null); // Access error through the hook if needed.
-        setSearchLoading(true);
-        try {
-            const response = await fetch('/api/scholars', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ profile: selectedSearchResult }),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                if (response.status === 409) {
-                    //setError(errorData.error || 'Scholar already exists'); //Access error through the hook if needed.
-                } else {
-                    throw new Error('Failed to add new scholar.');
-                }
-            } else {
-                const data = await response.json()
-                // Update the scholars list with the new entry (for display)
-                //setScholars(prev => [...prev, { ...selectedSearchResult, id: data.id }]); // Update via the hook's state setter
-                setSearchResults(null)
-                setSelectedSearchResult(null)
-            }
-        } catch (err) {
-            console.error('Error during adding Scholar:', err);
-           // setError('Failed to add scholar to database.'); //Access error through the hook if needed.
-        } finally {
-            setSearchLoading(false);
-        }
-    };
-
-    const handleManualSubmit = async (manualEntry:any) => {
-        //if (!manualEntry.name) {
-        //    setError('Name is required');
-        //    return;
-        //}
-
-        //setError(null); // Access error through the hook if needed.
+    const handleManualSubmit = async (manualEntry: any) => {
         setSearchLoading(true);
 
         try {
@@ -163,18 +77,18 @@ export default function ScholarsPage() {
             }
 
             const data = await response.json();
-            //setScholars(prev => [...prev, { ...manualEntry, id: data.id }]); // Update via the hook's state setter
+            router.refresh();
+            
             setShowManualEntry(false);
             setManualEntry({
-              name: '',
-              affiliation: '',
-              emailDomain: '',
-              citedby: 0,
-              hindex: 0
-          });
+                name: '',
+                affiliation: '',
+                emailDomain: '',
+                citedby: 0,
+                hindex: 0
+            });
         } catch (err) {
             console.error('Error during manual scholar addition:', err);
-            //setError('Failed to add scholar to database.'); //Access error through the hook if needed.
         } finally {
             setSearchLoading(false);
         }
@@ -183,7 +97,6 @@ export default function ScholarsPage() {
     const handleTitleClick = () => {
         router.push('/');
     };
-
 
     if (loading) {
         return (
@@ -226,18 +139,15 @@ export default function ScholarsPage() {
 
                 <ScholarStats stats={stats} />
 
+                {/* OpenAlex Scholar Search */}
                 <AddScholar
                     searchQuery={searchQuery}
                     setSearchQuery={setSearchQuery}
-                    searchResults={searchResults}
-                    selectedSearchResult={selectedSearchResult}
-                    setSelectedSearchResult={setSelectedSearchResult}
-                    handleGoogleScholarSearch={handleGoogleScholarSearch}
-                    handleAddScholar={handleAddScholar}
-                    searchLoading={searchLoading}
-                    error={error}
                     showManualEntry={showManualEntry}
                     setShowManualEntry={setShowManualEntry}
+                    onScholarAdded={() => {
+                        router.refresh();
+                    }}
                 />
 
                 <ManualScholarEntry
@@ -246,8 +156,8 @@ export default function ScholarsPage() {
                     searchLoading={searchLoading}
                     handleManualSubmit={handleManualSubmit}
                     error={error}
-                    manualEntry={manualEntry}  // Pass manualEntry
-                    setManualEntry={setManualEntry}  // Pass setManualEntry
+                    manualEntry={manualEntry}
+                    setManualEntry={setManualEntry}
                 />
 
                 <ScholarList scholars={filteredScholars} />

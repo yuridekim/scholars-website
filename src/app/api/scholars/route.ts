@@ -1,6 +1,5 @@
 // client/src/app/api/scholars/route.ts
 import { NextResponse } from 'next/server'
-// import { prisma } from '@/lib/prisma'
 import { PrismaClient, Prisma } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -26,11 +25,13 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { profile, publications } = body;
+    
+    console.log('Received profile data:', JSON.stringify(profile, null, 2));
 
     // Extract email domain from the email
-    const emailDomain = profile.email?.toLowerCase()?.split('@')[1] || null;
+    const emailDomain = profile.email?.toLowerCase()?.split('@')[1] || profile.emailDomain || null;
     const normalizedName = profile.name?.trim()?.toLowerCase();
-    const normalizedAffiliation = profile.institution?.trim()?.toLowerCase();
+    const normalizedAffiliation = profile.institution?.trim()?.toLowerCase() || profile.affiliation?.trim()?.toLowerCase();
     const scholarId = profile.scholarId?.trim() || null;
 
     // Validation
@@ -106,14 +107,19 @@ export async function POST(request: Request) {
 
     // Create new scholar with publications
     const scholar = await prisma.$transaction(async (tx) => {
-      // Create scholar
       const newScholar = await tx.scholar.create({
         data: {
           name: profile.name,
           emailDomain: emailDomain,
-          affiliation: profile.institution,
+          // Handle different field names from different sources
+          affiliation: profile.institution || profile.affiliation,
           scholarId: profile.scholarId,
-          citedby: profile.citations,
+          // Support both citedby (OpenAlex) and citations (Google Scholar) field names
+          citedby: profile.citedby || profile.citations || null,
+          citedby5y: profile.citedby5y || null,
+          hindex: profile.hindex || null,
+          i10index: profile.i10index || null,
+          totalPub: profile.totalPubs || profile.works_count || null,
           interests: Array.isArray(profile.interests) ? profile.interests.join(', ') : profile.interests,
           fullName: profile.name,
         },
