@@ -10,18 +10,18 @@ interface DataItem {
   color?: string;
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82ca9d', '#ffc658'];
+const COLORS = ['#D53F8C', '#805AD5', '#38A169', '#F6AD55', '#9B2C2C', '#3182CE', '#DD6B20'];
 
-interface PieResearchMethodsProps {
+interface PieResearchFocusProps {
   auth: AuthState;
 }
 
-function PieResearchMethods({ auth }: PieResearchMethodsProps): JSX.Element {
+function PieResearchFocus({ auth }: PieResearchFocusProps): JSX.Element {
   const [data, setData] = useState<DataItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const { isAuthenticated, accessToken, logout } = auth;
+  const { isAuthenticated, accessToken } = auth;
 
   useEffect(() => {
     const fetchScholars = async () => {
@@ -41,7 +41,6 @@ function PieResearchMethods({ auth }: PieResearchMethodsProps): JSX.Element {
           }
           
           // Get Object Spec
-          // https://www.palantir.com/docs/foundry/api/v2/ontologies-v2-resources/ontology-objects/list-objects/
           const proxyResponse = await fetch('/api/foundry-proxy', {
             method: 'POST',
             headers: {
@@ -90,18 +89,18 @@ function PieResearchMethods({ auth }: PieResearchMethodsProps): JSX.Element {
 
     const processScholarsData = (scholars: any[]) => {
       if (scholars.length > 0) {
-        const methodsMap: Record<string, number> = {};
+        const focusMap: Record<string, number> = {};
         
         for (const scholar of scholars) {
-          const method = scholar.methods || scholar.method || scholar.researchMethods || 'Not Specified';
+          const focus = scholar.focus || scholar.Focus || 'Not Specified';
           
-          if (!methodsMap[method]) {
-            methodsMap[method] = 0;
+          if (!focusMap[focus]) {
+            focusMap[focus] = 0;
           }
-          methodsMap[method] += 1;
+          focusMap[focus] += 1;
         }
         
-        const chartData = Object.entries(methodsMap)
+        const chartData = Object.entries(focusMap)
           .map(([name, value], index) => ({
             name,
             value,
@@ -163,7 +162,7 @@ function PieResearchMethods({ auth }: PieResearchMethodsProps): JSX.Element {
   return (
     <div className="bg-white rounded-lg shadow-md p-6 w-full">
       <div className="mb-6">
-        <h2 className="text-xl font-semibold text-gray-800">Scholars by Research Methods</h2>
+        <h2 className="text-xl font-semibold text-gray-800">Scholars by Research Focus</h2>
       </div>
       
       <div className="h-96 w-full">
@@ -214,4 +213,4 @@ function PieResearchMethods({ auth }: PieResearchMethodsProps): JSX.Element {
   );
 }
 
-export default PieResearchMethods;
+export default PieResearchFocus;
