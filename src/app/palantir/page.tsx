@@ -3,6 +3,8 @@
 import React from 'react';
 import PieResearchMethods from '@/components/palantir/PieResearchMethods';
 import PieResearchFocus from '@/components/palantir/PieResearchFocus';
+import PieResearchDiscipline from '@/components/palantir/PieDisciplineBackground';
+import PieHealthIssues from '@/components/palantir/PieHealthIssues';
 import { useFoundryAuth } from '@/hooks/useFoundryAuth';
 
 export default function PalantirPage() {
@@ -76,13 +78,21 @@ export default function PalantirPage() {
           </button>
         </header>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white rounded-lg shadow-md p-1">
             <PieResearchMethods auth={auth} />
           </div>
           
           <div className="bg-white rounded-lg shadow-md p-1">
             <PieResearchFocus auth={auth} />
+          </div>
+          
+          <div className="bg-white rounded-lg shadow-md p-1">
+            <PieResearchDiscipline auth={auth} />
+          </div>
+          
+          <div className="bg-white rounded-lg shadow-md p-1">
+            <PieHealthIssues auth={auth} />
           </div>
         </div>
       </div>
