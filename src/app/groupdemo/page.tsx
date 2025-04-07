@@ -7,7 +7,7 @@ import {
     CardTitle,
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button";
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, CheckCircle, Filter, Users, User, BookOpen, Bookmark, Info } from 'lucide-react';
 import FilterSection from '@/components/group/FilterSection';
 import PublicationTrendsChart from "@/components/visualizations/PublicationTrend";
 import { Scholar } from '@/lib/types';
@@ -19,11 +19,11 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge";
 
 
 type FilterType = 'name' | 'affiliation' | 'emailDomain' | 'interests';
 type Filter = {
-    id: string;
     type: FilterType;
     value: string;
 };
@@ -52,6 +52,7 @@ export default function ComparativeAnalysisPage() {
         i10Index: 0,
         totalPub: 0,
     });
+    const [filtersApplied, setFiltersApplied] = useState(false);
 
     useEffect(() => {
         const fetchScholars = async () => {
@@ -150,6 +151,7 @@ export default function ComparativeAnalysisPage() {
 
         setGroup1Metrics(getAverageMetrics(group1Scholars));
         setGroup2Metrics(getAverageMetrics(group2Scholars));
+        setFiltersApplied(true);
     };
 
     const getAverageMetrics = (scholars: Scholar[]) => {
@@ -195,38 +197,173 @@ export default function ComparativeAnalysisPage() {
         );
     };
 
+    const comparisonList = [
+        {
+            trigger: {
+                group: 'group1',
+                type: 'name',
+                value: 'philip chow'
+            },
+            action: {
+                group: 'group2',
+                filters: [
+                    {
+                        type: 'name' as FilterType,
+                        value: 'Stephanie M Carpenter'
+                    }
+                ],
+                matchPercentage: 95.84,
+                matchMessage: "is a 95.84% match with"
+            }
+        },
+        {
+            trigger: {
+                group: 'group1',
+                type: 'name',
+                value: 'philip chow'
+            },
+            action: {
+                group: 'group2',
+                filters: [
+                    {
+                        type: 'name' as FilterType,
+                        value: 'Jasmine Mote'
+                    }
+                ],
+                matchPercentage: 26.24,
+                matchMessage: "is a 26.24% match with"
+            }
+        },
+        {
+            trigger: {
+                group: 'group1',
+                type: 'name',
+                value: 'Natalie (Nat) Benda'
+            },
+            action: {
+                group: 'group2',
+                filters: [
+                    {
+                        type: 'name' as FilterType,
+                        value: 'Mustafa Ozkaynak'
+                    }
+                ],
+                matchPercentage: 95.84,
+                matchMessage: "is a 99.3% match with"
+            }
+        },
+        {
+            trigger: {
+                group: 'group1',
+                type: 'name',
+                value: 'Maia Jacobs'
+            },
+            action: {
+                group: 'group2',
+                filters: [
+                    {
+                        type: 'name' as FilterType,
+                        value: 'James Clawson'
+                    }
+                ],
+                matchPercentage: 95.84,
+                matchMessage: "is a 96.83% match with"
+            }
+        },
+    ];
+
+    const [activeMatch, setActiveMatch] = useState<{
+        group1Name: string;
+        group2Name: string;
+        matchPercentage?: number;
+        matchMessage: string;
+        isGroup1Group: boolean;
+        isGroup2Group: boolean;
+    } | null>(null);
+
     useEffect(() => {
-        console.log('Philip Chow effect checking filters:', group1Filters);
-        const philipChowFilter = group1Filters.find(
-            filter => filter.type === 'name' && filter.value.toLowerCase().includes('philip chow')
-        );
+        let matchFound = false;
+        
+        for (const preset of comparisonList) {
+            if (matchFound) continue;
+            
+            const matchingFilter = group1Filters.find(
+                filter => filter.type === preset.trigger.type && 
+                filter.value.toLowerCase().includes(preset.trigger.value.toLowerCase())
+            );
 
-        if (philipChowFilter) {
-            console.log('Philip Chow found in filters');
-            setGroup2Filters([]);
+            if (matchingFilter) {
+                matchFound = true;
+                console.log(`Found matching preset for ${matchingFilter.value}`);
+                setGroup2Filters([]);
 
-            setTimeout(() => {
-                const carpenterFilter: Filter = {
-                    id: 'auto-carpenter',
-                    type: 'name',
-                    value: 'Stephanie M Carpenter'
-                };
+                setTimeout(() => {
+                    const group1Scholars = getFilteredScholars(group1Filters, scholars);
+                    const group2Scholars = getFilteredScholars(preset.action.filters, scholars);
 
-                const group1Scholars = getFilteredScholars(group1Filters, scholars);
-                const group2Scholars = getFilteredScholars([carpenterFilter], scholars);
+                    console.log('Auto-update scholar results:', {
+                        group1Scholars,
+                        group2Scholars
+                    });
 
-                console.log('Auto-update scholar results:', {
-                    group1Scholars,
-                    group2Scholars
-                });
+                    setGroup2Filters(preset.action.filters);
+                    setFilteredGroup1Scholars(group1Scholars);
+                    setFilteredGroup2Scholars(group2Scholars);
 
-                setGroup2Filters([carpenterFilter]);
-                setFilteredGroup1Scholars(group1Scholars);
-                setFilteredGroup2Scholars(group2Scholars);
-
-                setGroup1Metrics(getAverageMetrics(group1Scholars));
-                setGroup2Metrics(getAverageMetrics(group2Scholars));
-            }, 100);
+                    setGroup1Metrics(getAverageMetrics(group1Scholars));
+                    setGroup2Metrics(getAverageMetrics(group2Scholars));
+                    setFiltersApplied(true);
+                    
+                    const isGroup1Group = group1Scholars.length > 1 || 
+                        group1Filters.some(f => f.type === 'affiliation' || f.type === 'emailDomain');
+                    const isGroup2Group = group2Scholars.length > 1 || 
+                        preset.action.filters.some(f => f.type === 'affiliation' || f.type === 'emailDomain');
+                    
+                    const getDisplayName = (filters: Filter[]) => {
+                        if (filters.length === 1) {
+                            return filters[0].value;
+                        }
+                        
+                        const byType: Record<string, string[]> = {};
+                        filters.forEach(f => {
+                            if (!byType[f.type]) byType[f.type] = [];
+                            byType[f.type].push(f.value);
+                        });
+                        
+                        const parts: string[] = [];
+                        if (byType['affiliation']) {
+                            parts.push(`${byType['affiliation'].join(', ')} affiliates`);
+                        }
+                        if (byType['name']) {
+                            parts.push(byType['name'].join(', '));
+                        }
+                        if (byType['interests']) {
+                            parts.push(`${byType['interests'].join(', ')} researchers`);
+                        }
+                        if (byType['emailDomain']) {
+                            parts.push(`${byType['emailDomain'].join(', ')} members`);
+                        }
+                        
+                        return parts.join(' and ');
+                    };
+                    
+                    const group1Name = group1Filters.length === 1 && 
+    group1Filters[0].type === matchingFilter.type && 
+    group1Filters[0].value === matchingFilter.value
+        ? matchingFilter.value
+        : getDisplayName(group1Filters);
+                    const group2Name = getDisplayName(preset.action.filters);
+                    
+                    setActiveMatch({
+                        group1Name,
+                        group2Name, 
+                        matchPercentage: preset.action.matchPercentage,
+                        matchMessage: preset.action.matchMessage || "compared with",
+                        isGroup1Group,
+                        isGroup2Group
+                    });
+                }, 100);
+            }
         }
     }, [group1Filters, getFilteredScholars, scholars]);
 
@@ -237,37 +374,79 @@ export default function ComparativeAnalysisPage() {
         </div>;
     }
 
+    // Extract scholar names from filters for display
+    const getScholarNameFromFilters = (filters: Filter[]): string | null => {
+        const nameFilter = filters.find(f => f.type === 'name');
+        return nameFilter ? nameFilter.value : null;
+    };
+
+    const group1ScholarName = getScholarNameFromFilters(group1Filters);
+    const group2ScholarName = getScholarNameFromFilters(group2Filters);
+
     return (
         <div className="min-h-screen bg-gray-50 p-6">
             <div className="max-w-7xl mx-auto space-y-6">
                 <h1 className="text-3xl font-bold">Comparative Scholar Analysis</h1>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {group1Filters.some(f => f.value.toLowerCase().includes('philip chow')) &&
-                        group2Filters.some(f => f.value.toLowerCase().includes('stephanie')) && (
-                            <div className="lg:col-span-2 bg-blue-50 p-4 rounded-lg mb-4">
-                                <p className="text-blue-700 text-center">
-                                    Philip Chow is a 95.84% match with Stephanie M Carpenter
-                                </p>
-                            </div>
-                        )}
                     <div>
-                        <h2 className="text-xl font-semibold mb-4">Group 1</h2>
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-semibold">Group 1</h2>
+                            {group1Filters.length > 0 && (
+                                <Badge variant="outline" className="flex items-center gap-1 bg-blue-50 text-blue-700 border-blue-200 px-3 py-1">
+                                    <Filter size={14} />
+                                    {group1Filters.length} filter{group1Filters.length !== 1 ? 's' : ''}
+                                </Badge>
+                            )}
+                        </div>
                         <FilterSection
                             scholars={scholars}
                             filteredScholars={filteredGroup1Scholars}
                             onFiltersChange={(newFilters) => handleFilterChange('group1', newFilters)}
                         />
+                        {group1ScholarName && filtersApplied && (
+                            <div className="mt-3 p-3 bg-blue-50 rounded-md border border-blue-100 flex items-center gap-2">
+                                <CheckCircle size={16} className="text-blue-600" />
+                                <span className="font-medium">Filter applied: {group1ScholarName}</span>
+                            </div>
+                        )}
                     </div>
                     <div>
-                        <h2 className="text-xl font-semibold mb-4">Group 2</h2>
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-semibold">Group 2</h2>
+                            {group2Filters.length > 0 && (
+                                <Badge variant="outline" className="flex items-center gap-1 bg-blue-50 text-blue-700 border-blue-200 px-3 py-1">
+                                    <Filter size={14} />
+                                    {group2Filters.length} filter{group2Filters.length !== 1 ? 's' : ''}
+                                </Badge>
+                            )}
+                        </div>
                         <FilterSection
                             scholars={scholars}
                             filteredScholars={filteredGroup2Scholars}
                             onFiltersChange={(newFilters) => handleFilterChange('group2', newFilters)}
                         />
+                        {group2ScholarName && filtersApplied && (
+                            <div className="mt-3 p-3 bg-blue-50 rounded-md border border-blue-100 flex items-center gap-2">
+                                <CheckCircle size={16} className="text-blue-600" />
+                                <span className="font-medium">Filter applied: {group2ScholarName}</span>
+                            </div>
+                        )}
                     </div>
                 </div>
+
+                {activeMatch && (
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                        <p className="text-blue-700 text-center font-medium">
+                            {activeMatch.isGroup1Group ? 'Scholars from ' : ''}
+                            <span className="font-semibold">{activeMatch.group1Name}</span>
+                            {activeMatch.isGroup1Group ? '' : ' '} 
+                            {activeMatch.matchMessage}
+                            {activeMatch.isGroup2Group ? ' scholars from ' : ' '}
+                            <span className="font-semibold">{activeMatch.group2Name}</span>
+                        </p>
+                    </div>
+                )}
 
                 <div className="flex justify-center">
                     <Button
@@ -278,71 +457,94 @@ export default function ComparativeAnalysisPage() {
                     </Button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-                    {Object.entries(group1Metrics).map(([metric, value1]) => {
-                        const value2 = group2Metrics[metric as keyof typeof group2Metrics];
-                        return renderMetricComparison(metric, value1, value2);
-                    })}
-                </div>
+                {filtersApplied && (
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+                            {Object.entries(group1Metrics).map(([metric, value1]) => {
+                                const value2 = group2Metrics[metric as keyof typeof group2Metrics];
+                                return renderMetricComparison(metric, value1, value2);
+                            })}
+                        </div>
 
-                {/* Publication Trends Graph */}
-                <PublicationTrendsChart scholars={[...filteredGroup1Scholars, ...filteredGroup2Scholars]} />
+                        {/* Publication Trends Graph */}
+                        <PublicationTrendsChart scholars={[...filteredGroup1Scholars, ...filteredGroup2Scholars]} />
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {[
-                        { scholars: filteredGroup1Scholars, title: 'Group 1' },
-                        { scholars: filteredGroup2Scholars, title: 'Group 2' }
-                    ].map(({ scholars, title }) => (
-                        <Card key={title}>
-                            <CardHeader>
-                                <CardTitle>{title} Scholars ({scholars.length})</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="max-h-96 overflow-y-auto">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Name</TableHead>
-                                                <TableHead>Affiliation</TableHead>
-                                                <TableHead>Citations</TableHead>
-                                                <TableHead>h-index</TableHead>
-                                                <TableHead>i10-index</TableHead>
-                                                <TableHead>Total Publications</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {scholars.map((scholar) => (
-                                                <TableRow key={scholar.id}>
-                                                    <TableCell className="font-medium">
-                                                        {scholar.name}
-                                                        {scholar.emailDomain && (
-                                                            <div className="text-sm text-gray-500">{scholar.emailDomain}</div>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>{scholar.affiliation || 'N/A'}</TableCell>
-                                                    <TableCell>
-                                                        {scholar.citedby || 0}
-                                                        {scholar.citedby5y && (
-                                                            <div className="text-xs text-gray-500">Last 5y: {scholar.citedby5y}</div>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {scholar.hindex || 0}
-                                                        {scholar.hindex5y && (
-                                                            <div className="text-xs text-gray-500">Last 5y: {scholar.hindex5y}</div>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>{scholar.i10index || 0}</TableCell>
-                                                    <TableCell>{scholar.totalPub || 0}</TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {[
+                                { scholars: filteredGroup1Scholars, title: 'Group 1', scholarName: group1ScholarName },
+                                { scholars: filteredGroup2Scholars, title: 'Group 2', scholarName: group2ScholarName }
+                            ].map(({ scholars, title, scholarName }) => (
+                                <Card key={title}>
+                                    <CardHeader className="pb-2">
+                                        <div className="flex justify-between items-center">
+                                            <div className="flex items-center gap-2">
+                                                {scholars.length > 1 ? (
+                                                    <Users size={18} className="text-blue-600" />
+                                                ) : (
+                                                    <User size={18} className="text-blue-600" />
+                                                )}
+                                                <CardTitle>{title} {scholars.length > 1 ? 'Scholars' : 'Scholar'} ({scholars.length})</CardTitle>
+                                            </div>
+                                            {scholarName && (
+                                                <Badge variant="secondary" className="ml-2 flex items-center gap-1">
+                                                    {scholarName.includes('Stanford') || scholarName.includes('MIT') ? (
+                                                        <BookOpen size={12} />
+                                                    ) : (
+                                                        <Bookmark size={12} />
+                                                    )}
+                                                    {scholarName}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="max-h-96 overflow-y-auto">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Name</TableHead>
+                                                        <TableHead>Affiliation</TableHead>
+                                                        <TableHead>Citations</TableHead>
+                                                        <TableHead>h-index</TableHead>
+                                                        <TableHead>i10-index</TableHead>
+                                                        <TableHead>Total Publications</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {scholars.map((scholar) => (
+                                                        <TableRow key={scholar.id}>
+                                                            <TableCell className="font-medium">
+                                                                {scholar.name}
+                                                                {scholar.emailDomain && (
+                                                                    <div className="text-sm text-gray-500">{scholar.emailDomain}</div>
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell>{scholar.affiliation || 'N/A'}</TableCell>
+                                                            <TableCell>
+                                                                {scholar.citedby || 0}
+                                                                {scholar.citedby5y && (
+                                                                    <div className="text-xs text-gray-500">Last 5y: {scholar.citedby5y}</div>
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {scholar.hindex || 0}
+                                                                {scholar.hindex5y && (
+                                                                    <div className="text-xs text-gray-500">Last 5y: {scholar.hindex5y}</div>
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell>{scholar.i10index || 0}</TableCell>
+                                                            <TableCell>{scholar.totalPub || 0}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     );
