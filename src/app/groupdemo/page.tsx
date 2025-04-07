@@ -28,6 +28,15 @@ type Filter = {
     value: string;
 };
 
+type ScholarMatch = {
+    group1Name: string;
+    group2Name: string;
+    matchPercentage?: number;
+    matchMessage: string;
+    isGroup1Group: boolean;
+    isGroup2Group: boolean;
+    filters: Filter[];
+};
 
 export default function ComparativeAnalysisPage() {
     const [scholars, setScholars] = useState<Scholar[]>([]);
@@ -53,6 +62,10 @@ export default function ComparativeAnalysisPage() {
         totalPub: 0,
     });
     const [filtersApplied, setFiltersApplied] = useState(false);
+    
+    const [possibleMatches, setPossibleMatches] = useState<ScholarMatch[]>([]);
+    const [selectedMatchIndex, setSelectedMatchIndex] = useState<number>(0);
+    const [matchesProcessed, setMatchesProcessed] = useState(false);
 
     useEffect(() => {
         const fetchScholars = async () => {
@@ -108,9 +121,12 @@ export default function ComparativeAnalysisPage() {
             const filteredScholars = getFilteredScholars(group1Filters, scholars);
             console.log('Setting filtered group 1 scholars:', filteredScholars);
             setFilteredGroup1Scholars(filteredScholars);
+            
+            setMatchesProcessed(false);
         } else {
             console.log('No filters, setting empty array');
             setFilteredGroup1Scholars([]);
+            setPossibleMatches([]);
         }
     }, [group1Filters, getFilteredScholars, scholars]);
 
@@ -119,18 +135,15 @@ export default function ComparativeAnalysisPage() {
             group1Filters,
             filteredGroup1Scholars,
             group2Filters,
-            filteredGroup2Scholars
+            filteredGroup2Scholars,
+            matchesProcessed
         });
-    }, [group1Filters, filteredGroup1Scholars, group2Filters, filteredGroup2Scholars]);
+    }, [group1Filters, filteredGroup1Scholars, group2Filters, filteredGroup2Scholars, matchesProcessed]);
 
     const handleFilterChange = (groupId: string, newFilters: Filter[]) => {
         console.log('handleFilterChange:', { groupId, newFilters });
         if (groupId === 'group1') {
             setGroup1Filters(newFilters);
-
-            const filteredScholars = getFilteredScholars(newFilters, scholars);
-            console.log('Immediate filter results:', filteredScholars);
-            setFilteredGroup1Scholars(filteredScholars);
         } else {
             setGroup2Filters(newFilters);
         }
@@ -272,51 +285,43 @@ export default function ComparativeAnalysisPage() {
         },
     ];
 
-    const [activeMatch, setActiveMatch] = useState<{
-        group1Name: string;
-        group2Name: string;
-        matchPercentage?: number;
-        matchMessage: string;
-        isGroup1Group: boolean;
-        isGroup2Group: boolean;
-    } | null>(null);
+    const selectMatch = (index: number) => {
+        if (index >= 0 && index < possibleMatches.length) {
+            setSelectedMatchIndex(index);
+            
+            const match = possibleMatches[index];
+            setGroup2Filters(match.filters);
+            
+            const group1Scholars = getFilteredScholars(group1Filters, scholars);
+            const group2Scholars = getFilteredScholars(match.filters, scholars);
+            
+            setFilteredGroup1Scholars(group1Scholars);
+            setFilteredGroup2Scholars(group2Scholars);
+            
+            setGroup1Metrics(getAverageMetrics(group1Scholars));
+            setGroup2Metrics(getAverageMetrics(group2Scholars));
+            setFiltersApplied(true);
+        }
+    };
 
     useEffect(() => {
-        let matchFound = false;
-        
-        for (const preset of comparisonList) {
-            if (matchFound) continue;
+        if (group1Filters.length > 0 && !matchesProcessed && filteredGroup1Scholars.length > 0) {
+            console.log('Finding matches for filters');
             
-            const matchingFilter = group1Filters.find(
-                filter => filter.type === preset.trigger.type && 
-                filter.value.toLowerCase().includes(preset.trigger.value.toLowerCase())
-            );
+            const matches: ScholarMatch[] = [];
+            
+            for (const preset of comparisonList) {
+                const matchingFilter = group1Filters.find(
+                    filter => filter.type === preset.trigger.type && 
+                    filter.value.toLowerCase().includes(preset.trigger.value.toLowerCase())
+                );
 
-            if (matchingFilter) {
-                matchFound = true;
-                console.log(`Found matching preset for ${matchingFilter.value}`);
-                setGroup2Filters([]);
-
-                setTimeout(() => {
-                    const group1Scholars = getFilteredScholars(group1Filters, scholars);
-                    const group2Scholars = getFilteredScholars(preset.action.filters, scholars);
-
-                    console.log('Auto-update scholar results:', {
-                        group1Scholars,
-                        group2Scholars
-                    });
-
-                    setGroup2Filters(preset.action.filters);
-                    setFilteredGroup1Scholars(group1Scholars);
-                    setFilteredGroup2Scholars(group2Scholars);
-
-                    setGroup1Metrics(getAverageMetrics(group1Scholars));
-                    setGroup2Metrics(getAverageMetrics(group2Scholars));
-                    setFiltersApplied(true);
+                if (matchingFilter) {
+                    console.log(`Found matching preset for ${matchingFilter.value}`);
                     
-                    const isGroup1Group = group1Scholars.length > 1 || 
+                    const isGroup1Group = filteredGroup1Scholars.length > 1 || 
                         group1Filters.some(f => f.type === 'affiliation' || f.type === 'emailDomain');
-                    const isGroup2Group = group2Scholars.length > 1 || 
+                    const isGroup2Group = preset.action.filters.length > 1 || 
                         preset.action.filters.some(f => f.type === 'affiliation' || f.type === 'emailDomain');
                     
                     const getDisplayName = (filters: Filter[]) => {
@@ -348,24 +353,50 @@ export default function ComparativeAnalysisPage() {
                     };
                     
                     const group1Name = group1Filters.length === 1 && 
-    group1Filters[0].type === matchingFilter.type && 
-    group1Filters[0].value === matchingFilter.value
-        ? matchingFilter.value
-        : getDisplayName(group1Filters);
+                        group1Filters[0].type === matchingFilter.type && 
+                        group1Filters[0].value === matchingFilter.value
+                            ? matchingFilter.value
+                            : getDisplayName(group1Filters);
                     const group2Name = getDisplayName(preset.action.filters);
                     
-                    setActiveMatch({
+                    matches.push({
                         group1Name,
                         group2Name, 
                         matchPercentage: preset.action.matchPercentage,
                         matchMessage: preset.action.matchMessage || "compared with",
                         isGroup1Group,
-                        isGroup2Group
+                        isGroup2Group,
+                        filters: preset.action.filters
                     });
-                }, 100);
+                }
             }
+            
+            if (matches.length > 0) {
+                setPossibleMatches(matches);
+                setSelectedMatchIndex(0);
+                
+                const firstMatch = matches[0];
+                setGroup2Filters(firstMatch.filters);
+                
+                const group2Scholars = getFilteredScholars(firstMatch.filters, scholars);
+                setFilteredGroup2Scholars(group2Scholars);
+                
+                setGroup1Metrics(getAverageMetrics(filteredGroup1Scholars));
+                setGroup2Metrics(getAverageMetrics(group2Scholars));
+                setFiltersApplied(true);
+            } else {
+                setPossibleMatches([]);
+            }
+            
+            setMatchesProcessed(true);
         }
-    }, [group1Filters, getFilteredScholars, scholars]);
+    }, [
+        group1Filters, 
+        getFilteredScholars, 
+        scholars, 
+        filteredGroup1Scholars, 
+        matchesProcessed
+    ]);
 
 
     if (loading) {
@@ -435,16 +466,35 @@ export default function ComparativeAnalysisPage() {
                     </div>
                 </div>
 
-                {activeMatch && (
+                {possibleMatches.length > 0 && (
                     <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                        <p className="text-blue-700 text-center font-medium">
-                            {activeMatch.isGroup1Group ? 'Scholars from ' : ''}
-                            <span className="font-semibold">{activeMatch.group1Name}</span>
-                            {activeMatch.isGroup1Group ? '' : ' '} 
-                            {activeMatch.matchMessage}
-                            {activeMatch.isGroup2Group ? ' scholars from ' : ' '}
-                            <span className="font-semibold">{activeMatch.group2Name}</span>
-                        </p>
+                        <div className="text-blue-700 text-center font-medium mb-3">
+                            {possibleMatches[selectedMatchIndex].isGroup1Group ? 'Scholars from ' : ''}
+                            <span className="font-semibold">{possibleMatches[selectedMatchIndex].group1Name}</span>
+                            {possibleMatches[selectedMatchIndex].isGroup1Group ? '' : ' '} 
+                            {possibleMatches[selectedMatchIndex].matchMessage}
+                            {possibleMatches[selectedMatchIndex].isGroup2Group ? ' scholars from ' : ' '}
+                            <span className="font-semibold">{possibleMatches[selectedMatchIndex].group2Name}</span>
+                        </div>
+                        
+                        {possibleMatches.length > 1 && (
+                            <div className="flex flex-wrap justify-center gap-2 mt-2">
+                                <div className="text-sm text-blue-800 mr-2 font-medium">Other matches:</div>
+                                {possibleMatches.map((match, index) => (
+                                    index !== selectedMatchIndex && (
+                                        <Button 
+                                            key={index}
+                                            variant="outline" 
+                                            size="sm"
+                                            className="bg-white text-blue-700 border-blue-300 hover:bg-blue-100"
+                                            onClick={() => selectMatch(index)}
+                                        >
+                                            {match.group2Name} ({match.matchPercentage}%)
+                                        </Button>
+                                    )
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
 
