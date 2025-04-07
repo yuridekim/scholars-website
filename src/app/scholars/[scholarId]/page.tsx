@@ -1,13 +1,12 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { Scholar, GoogleScholarPub, PubmedPub, Grant } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { CollapsibleGrants } from '@/components/grants';
 import { CollapsiblePublications } from '@/components/publications';
-
 
 const extractUniqueGrants = (pubs?: PubmedPub[]): Grant[] => {
   if (!pubs) return []
@@ -179,13 +178,18 @@ const MetricItem = ({
   </div>
 )
 
-function ScholarDetail({ scholarId }: { scholarId: string }) {
+export default function Page() {
   const router = useRouter()
+  const params = useParams()
+  const scholarId = params.scholarId as string
+  
   const [scholar, setScholar] = useState<Scholar | null>(null)
   const [loading, setLoading] = useState(true)
   const [grants, setGrants] = useState<Grant[]>([])
 
   useEffect(() => {
+    if (!scholarId) return;
+    
     fetch(`/api/scholars/${scholarId}`)
       .then((res) => res.json())
       .then((data: Scholar) => {
@@ -253,8 +257,4 @@ function ScholarDetail({ scholarId }: { scholarId: string }) {
       </div>
     </div>
   )
-}
-
-export default function Page({ params }: { params: { scholarId: string } }) {
-  return <ScholarDetail scholarId={params.scholarId} />
 }
