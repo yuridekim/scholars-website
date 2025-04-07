@@ -57,10 +57,10 @@ const AddScholar: React.FC<AddScholarProps> = ({
   onScholarAdded
 }) => {
   const [scholars, setScholars] = useState<OpenAlexScholar[]>([]);
-  const [selectedScholar, setSelectedScholar] = useState<OpenAlexScholar | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [isSuccess, setIsSuccess] = useState<boolean>(false);
+  const [addingScholarId, setAddingScholarId] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const searchOpenAlexScholars = async () => {
     if (!searchQuery.trim()) return;
@@ -68,8 +68,7 @@ const AddScholar: React.FC<AddScholarProps> = ({
     setIsLoading(true);
     setError(null);
     setScholars([]);
-    setSelectedScholar(null);
-    setIsSuccess(false);
+    setSuccessMessage(null);
 
     try {
       const response = await axios.get<{ results: OpenAlexScholar[] }>('https://api.openalex.org/authors', {
@@ -85,11 +84,6 @@ const AddScholar: React.FC<AddScholarProps> = ({
       setError('Failed to fetch scholars from OpenAlex');
       setIsLoading(false);
     }
-  };
-
-  const handleSelectScholar = (scholar: OpenAlexScholar) => {
-    setSelectedScholar(scholar);
-    setIsSuccess(false);
   };
 
   const getAffiliation = (scholar: OpenAlexScholar): string => {
@@ -112,50 +106,49 @@ const AddScholar: React.FC<AddScholarProps> = ({
     return last5Years > 0 ? last5Years : undefined;
   };
 
-  const addSelectedScholar = async () => {
-    if (selectedScholar) {
-      setIsLoading(true);
-      setError(null);
-      
-      const citedby5y = calculateCitations5Years(selectedScholar);
-      
-      const scholarProfile: ScholarProfile = {
-        name: selectedScholar.display_name,
-        affiliation: getAffiliation(selectedScholar),
-        scholarId: selectedScholar.id,
-        citedby: selectedScholar.cited_by_count,
-        citedby5y: citedby5y,
-        hindex: selectedScholar.summary_stats?.h_index,
-        i10index: selectedScholar.summary_stats?.i10_index,
-        totalPubs: selectedScholar.works_count
-      };
-      
-      try {
-        const response = await fetch('/api/scholars', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ profile: scholarProfile }),
-        });
+  const addScholar = async (scholar: OpenAlexScholar) => {
+    setAddingScholarId(scholar.id);
+    setError(null);
+    setSuccessMessage(null);
+    
+    const citedby5y = calculateCitations5Years(scholar);
+    
+    const scholarProfile: ScholarProfile = {
+      name: scholar.display_name,
+      affiliation: getAffiliation(scholar),
+      scholarId: scholar.id,
+      citedby: scholar.cited_by_count,
+      citedby5y: citedby5y,
+      hindex: scholar.summary_stats?.h_index,
+      i10index: scholar.summary_stats?.i10_index,
+      totalPubs: scholar.works_count
+    };
+    
+    try {
+      const response = await fetch('/api/scholars', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ profile: scholarProfile }),
+      });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to add scholar');
-        }
-        
-        const data = await response.json();
-        setIsSuccess(true);
-        
-        if (onScholarAdded) {
-          onScholarAdded();
-        }
-      } catch (err) {
-        console.error('Error adding scholar:', err);
-        setError(`Failed to add scholar: ${err instanceof Error ? err.message : String(err)}`);
-      } finally {
-        setIsLoading(false);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add scholar');
       }
+      
+      const data = await response.json();
+      setSuccessMessage(`${scholar.display_name} successfully added to the database!`);
+      
+      if (onScholarAdded) {
+        onScholarAdded();
+      }
+    } catch (err) {
+      console.error('Error adding scholar:', err);
+      setError(`Failed to add scholar: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setAddingScholarId(null);
     }
   };
 
@@ -175,9 +168,9 @@ const AddScholar: React.FC<AddScholarProps> = ({
         <p className="text-red-500 mt-2 mb-4">{error}</p>
       )}
       
-      {isSuccess && (
+      {successMessage && (
         <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-          Scholar successfully added to the database!
+          {successMessage}
         </div>
       )}
 
@@ -208,55 +201,37 @@ const AddScholar: React.FC<AddScholarProps> = ({
       {scholars.length > 0 && (
         <div className="mt-4">
           <h2 className="text-xl font-semibold mb-2">Potential Matches from OpenAlex</h2>
-          <ul>
+          <div className="space-y-4">
             {scholars.map((scholar) => (
-              <li 
+              <div 
                 key={scholar.id} 
-                className="mb-2 p-4 border rounded shadow-sm bg-white hover:bg-gray-50 cursor-pointer"
-                onClick={() => handleSelectScholar(scholar)}
-                style={{ backgroundColor: selectedScholar?.id === scholar.id ? '#e0f7fa' : 'white' }}
+                className="p-4 border rounded shadow-sm bg-white hover:bg-gray-50"
               >
-                <p className="font-medium">{scholar.display_name}</p>
-                <p className="text-sm text-gray-500">{getAffiliation(scholar)}</p>
-                <p className="text-sm text-gray-500">
-                  Works: {scholar.works_count} | 
-                  Citations: {scholar.cited_by_count} | 
-                  h-index: {scholar.summary_stats?.h_index || 'N/A'} |
-                  i10-index: {scholar.summary_stats?.i10_index || 'N/A'}
-                </p>
-              </li>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-medium">{scholar.display_name}</p>
+                    <p className="text-sm text-gray-500">{getAffiliation(scholar)}</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Works: {scholar.works_count} | 
+                      Citations: {scholar.cited_by_count} | 
+                      h-index: {scholar.summary_stats?.h_index || 'N/A'} |
+                      i10-index: {scholar.summary_stats?.i10_index || 'N/A'}
+                      {calculateCitations5Years(scholar) && (
+                        <> | Citations (5y): {calculateCitations5Years(scholar)}</>
+                      )}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => addScholar(scholar)}
+                    disabled={addingScholarId === scholar.id}
+                    className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:bg-green-300 disabled:cursor-not-allowed transition-colors ml-4 whitespace-nowrap"
+                  >
+                    {addingScholarId === scholar.id ? 'Adding...' : 'Add to Database'}
+                  </button>
+                </div>
+              </div>
             ))}
-          </ul>
-          
-          {selectedScholar && (
-            <div className="mt-4 p-4 border rounded shadow-sm bg-blue-50">
-              <h3 className="text-lg font-medium mb-2">Scholar Information</h3>
-              <p className="text-sm text-gray-600 mb-3">
-                Note: OpenAlex does not provide email addresses or Google Scholar IDs.
-              </p>
-              <div className="mb-3">
-                <h4 className="text-sm font-medium text-gray-700">Available Metrics:</h4>
-                <ul className="list-disc pl-5 text-sm text-gray-600">
-                  <li>Total Publications: {selectedScholar.works_count}</li>
-                  <li>Total Citations: {selectedScholar.cited_by_count}</li>
-                  <li>h-index: {selectedScholar.summary_stats?.h_index || 'Not available'}</li>
-                  <li>i10-index: {selectedScholar.summary_stats?.i10_index || 'Not available'}</li>
-                  {calculateCitations5Years(selectedScholar) && (
-                    <li>Citations (last 5 years): {calculateCitations5Years(selectedScholar)}</li>
-                  )}
-                </ul>
-              </div>
-              <div className="flex justify-end">
-                <button
-                  onClick={addSelectedScholar}
-                  disabled={isLoading}
-                  className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:bg-green-300 disabled:cursor-not-allowed"
-                >
-                  {isLoading ? 'Adding...' : 'Add Scholar to Database'}
-                </button>
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       )}
     </>
