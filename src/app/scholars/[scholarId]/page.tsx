@@ -6,7 +6,7 @@ import { Scholar, GoogleScholarPub, PubmedPub, Grant } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { CollapsibleGrants } from '@/components/grants';
-import { CollapsiblePublications } from '@/components/publications';
+import OpenAlexScholarSearch from '@/components/openalex/publications';
 
 const extractUniqueGrants = (pubs?: PubmedPub[]): Grant[] => {
   if (!pubs) return []
@@ -250,8 +250,11 @@ export default function Page() {
             {grants.length > 0 && <CollapsibleGrants grants={grants} />}
 
             {scholar.googleScholarPubs && scholar.googleScholarPubs.length > 0 && (
-              <CollapsiblePublications publications={scholar.googleScholarPubs} />
-            )}
+  <OpenAlexScholarSearch 
+    existingPublications={scholar.googleScholarPubs}
+    scholarName={scholar.name}
+  />
+)}
           </CardContent>
         </Card>
       </div>
