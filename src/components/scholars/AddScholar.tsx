@@ -112,11 +112,12 @@ const AddScholar: React.FC<AddScholarProps> = ({
     setSuccessMessage(null);
     
     const citedby5y = calculateCitations5Years(scholar);
+    const scholarID = scholar.id.split('/').pop() || scholar.id;
     
     const scholarProfile: ScholarProfile = {
       name: scholar.display_name,
       affiliation: getAffiliation(scholar),
-      scholarId: scholar.id,
+      scholarId: scholarID,
       citedby: scholar.cited_by_count,
       citedby5y: citedby5y,
       hindex: scholar.summary_stats?.h_index,
