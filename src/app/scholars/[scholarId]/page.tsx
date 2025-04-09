@@ -234,27 +234,29 @@ export default function Page() {
               </div>
             )}
 
-            <div className="mt-8">
-              <h3 className="text-xl font-semibold mb-4">Network Analysis</h3>
-              <div className="w-full h-96 border rounded-lg overflow-hidden">
-                <iframe
-                  src="/network_plot.html"
-                  className="w-full h-full"
-                  style={{ border: 'none' }}
-                  width="100%"
-                  height="100%"
-                />
+            {scholar.emailDomain && (
+              <div className="mt-8">
+                <h3 className="text-xl font-semibold mb-4">Network Analysis</h3>
+                <div className="w-full h-96 border rounded-lg overflow-hidden">
+                  <iframe
+                    src="/network_plot.html"
+                    className="w-full h-full"
+                    style={{ border: 'none' }}
+                    width="100%"
+                    height="100%"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {grants.length > 0 && <CollapsibleGrants grants={grants} />}
 
             {scholar.googleScholarPubs && scholar.googleScholarPubs.length > 0 && (
-  <OpenAlexScholarSearch 
-    existingPublications={scholar.googleScholarPubs}
-    scholarName={scholar.name}
-  />
-)}
+              <OpenAlexScholarSearch 
+                existingPublications={scholar.googleScholarPubs}
+                scholarName={scholar.name}
+              />
+            )}
           </CardContent>
         </Card>
       </div>
