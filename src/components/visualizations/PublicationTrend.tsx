@@ -12,51 +12,34 @@ import {
     ResponsiveContainer
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Scholar, GoogleScholarPub, PubmedPub } from '@/lib/types';
+import { Scholar } from '@/lib/types';
 
 interface Publication {
     year: number;
     scholarName: string;
-}
-
-interface YearlyPublicationData {
-    year: number;
-    [scholarName: string]: number;
+    group: 'group1' | 'group2';
 }
 
 type Props = {
     scholars: Scholar[];
+    group1ScholarCount?: number;
 }
 
-const CustomLegend = (props: any) => {
-    const { payload } = props;
-    
-    return (
-        <ul className="flex justify-center gap-8 pt-2">
-            {payload.map((entry: any, index: number) => (
-                <li key={`item-${index}`}>
-                    <a 
-                        href={`/scholars/${index === 0 ? 'ongVzPEAAAAJ' : 'D61rDpwAAAAJ'}`}
-                        className="flex items-center gap-2 hover:opacity-75 transition-opacity"
-                    >
-                        <span 
-                            className="inline-block w-3 h-3 rounded-full"
-                            style={{ backgroundColor: entry.color }}
-                        />
-                        <span className="text-sm text-gray-700 hover:text-gray-900">
-                            {entry.value}
-                        </span>
-                    </a>
-                </li>
-            ))}
-        </ul>
-    );
-};
-
-const PublicationTrendsChart = ({ scholars }: Props) => {
+const PublicationTrendsChart = ({ scholars, group1ScholarCount: propGroup1Count }: Props) => {
     const [loadedScholars, setLoadedScholars] = useState<Scholar[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [group1ScholarCount, setGroup1ScholarCount] = useState<number>(0);
+    
+    const GROUP_COLORS = {
+        group1: "#4F46E5",
+        group2: "#E11D48"
+    };
+
+    useEffect(() => {
+        const grp1Count = propGroup1Count !== undefined ? propGroup1Count : Math.floor(scholars.length * 0.75);
+        setGroup1ScholarCount(grp1Count);
+    }, [scholars, propGroup1Count]);
 
     useEffect(() => {
         const fetchScholarsData = async () => {
@@ -92,18 +75,19 @@ const PublicationTrendsChart = ({ scholars }: Props) => {
     const publicationData = useMemo(() => {
         if (!loadedScholars.length) return [];
 
-        const getGoogleScholarPubs = (scholar: Scholar): Publication[] => {
+        const getGoogleScholarPubs = (scholar: Scholar, index: number): Publication[] => {
             const pubs = (scholar.googleScholarPubs || [])
                 .filter(pub => pub.pubYear && pub.pubYear > 2000)
                 .map(pub => ({
                     year: pub.pubYear!,
-                    scholarName: scholar.name
+                    scholarName: scholar.name,
+                    group: (index < group1ScholarCount ? 'group1' : 'group2') as 'group1' | 'group2'
                 }));
             console.log(`Google Scholar pubs for ${scholar.name}:`, pubs);
             return pubs;
         };
 
-        const getPubmedPubs = (scholar: Scholar): Publication[] => {
+        const getPubmedPubs = (scholar: Scholar, index: number): Publication[] => {
             const pubs = (scholar.pubmedPubs || [])
                 .filter(pub => {
                     const yearType = pub.publicationType.find(type => /^\d{4}$/.test(type));
@@ -114,16 +98,17 @@ const PublicationTrendsChart = ({ scholars }: Props) => {
                     const yearType = pub.publicationType.find(type => /^\d{4}$/.test(type))!;
                     return {
                         year: parseInt(yearType),
-                        scholarName: scholar.name
+                        scholarName: scholar.name,
+                        group: (index < group1ScholarCount ? 'group1' : 'group2') as 'group1' | 'group2'
                     };
                 });
             console.log(`PubMed pubs for ${scholar.name}:`, pubs);
             return pubs;
         };
 
-        const allPubs = loadedScholars.flatMap(scholar => {
-            const googlePubs = getGoogleScholarPubs(scholar);
-            const pubmedPubs = getPubmedPubs(scholar);
+        const allPubs = loadedScholars.flatMap((scholar, index) => {
+            const googlePubs = getGoogleScholarPubs(scholar, index);
+            const pubmedPubs = getPubmedPubs(scholar, index);
             return [...googlePubs, ...pubmedPubs];
         });
 
@@ -154,7 +139,44 @@ const PublicationTrendsChart = ({ scholars }: Props) => {
                 ...countsByScholar
             };
         });
-    }, [loadedScholars, scholars]);
+    }, [loadedScholars, scholars, group1ScholarCount]);
+
+    const getScholarColor = (scholar: Scholar, index: number): string => {
+        return index < group1ScholarCount ? GROUP_COLORS.group1 : GROUP_COLORS.group2;
+    };
+
+    const CustomLegend = (props: any) => {
+        const { payload } = props;
+        
+        return (
+            <ul className="flex justify-center gap-8 pt-2">
+                {payload.map((entry: any, index: number) => (
+                    <li key={`item-${index}`}>
+                        <a 
+                            href={scholars[index]?.scholarId ? `/scholars/${scholars[index].scholarId}` : '#'}
+                            className="flex items-center gap-2 hover:opacity-75 transition-opacity"
+                        >
+                            <span 
+                                className="inline-block w-3 h-3 rounded-full"
+                                style={{ backgroundColor: entry.color }}
+                            />
+                            <span className="text-sm text-gray-700 hover:text-gray-900">
+                                {entry.value}
+                            </span>
+                        </a>
+                    </li>
+                ))}
+            </ul>
+        );
+    };
+
+    const getLegendPayload = () => {
+        return scholars.map((scholar, index) => ({
+            value: scholar.name,
+            color: getScholarColor(scholar, index),
+            scholarId: scholar.scholarId
+        }));
+    };
 
     if (!scholars.length) {
         return (
@@ -258,16 +280,17 @@ const PublicationTrendsChart = ({ scholars }: Props) => {
                                 wrapperStyle={{
                                     paddingTop: '10px'
                                 }}
+                                payload={getLegendPayload()}
                             />
                             {scholars.map((scholar, index) => (
                                 <Line
                                     key={scholar.name}
                                     type="monotone"
                                     dataKey={scholar.name}
-                                    stroke={index === 0 ? "#4F46E5" : "#E11D48"}
+                                    stroke={getScholarColor(scholar, index)}
                                     strokeWidth={2}
                                     dot={{ 
-                                        fill: index === 0 ? "#4F46E5" : "#E11D48",
+                                        fill: getScholarColor(scholar, index),
                                         r: 4
                                     }}
                                     activeDot={{

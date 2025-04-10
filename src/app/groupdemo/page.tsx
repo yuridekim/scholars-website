@@ -517,7 +517,9 @@ export default function ComparativeAnalysisPage() {
                         </div>
 
                         {/* Publication Trends Graph */}
-                        <PublicationTrendsChart scholars={[...filteredGroup1Scholars, ...filteredGroup2Scholars]} />
+                        <PublicationTrendsChart 
+                        scholars={[...filteredGroup1Scholars, ...filteredGroup2Scholars]} 
+                        group1ScholarCount={filteredGroup1Scholars.length} />
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {[
