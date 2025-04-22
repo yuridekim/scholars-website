@@ -4,9 +4,10 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: Request,
-  { params }: { params: { scholarId: string } }
+  context: { params: Promise<{ scholarId: string }> | { scholarId: string } }
 ) {
   try {
+    const params = await context.params;
     const scholarId = params.scholarId;
 
     if (!scholarId) {
@@ -16,9 +17,12 @@ export async function GET(
       );
     }
 
-    const scholar = await prisma.scholar.findUnique({
+    const scholar = await prisma.scholar.findFirst({
       where: {
-        scholarId: scholarId
+        scholarId: {
+          equals: scholarId,
+          mode: 'insensitive'
+        }
       },
       include: {
         googleScholarPubs: {
