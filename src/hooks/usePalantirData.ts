@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { AuthState } from '@/hooks/useFoundryAuth';
 import { Publication, Scholar } from '@/components/palantir/palantirService';
-
 export interface PalantirDataState<T> {
   data: T[];
   loading: boolean;
@@ -13,147 +12,143 @@ export interface PalantirDataState<T> {
 }
 
 interface UsePalantirDataOptions {
-    objectType: string;
-    ontologyRid: string;
-    pageSize?: number;
-    initialFilter?: string;
-  }
+  objectType: string;
+  pageSize?: number;
+  initialFilter?: string;
+}
 
 export function usePalantirData<T>(
-    auth: AuthState,
-    options: UsePalantirDataOptions
-  ): PalantirDataState<T> & { loadMore: () => Promise<void> } {
-    const { objectType, ontologyRid, pageSize = 100, initialFilter } = options;
+  auth: AuthState,
+  options: UsePalantirDataOptions
+): PalantirDataState<T> & { loadMore: () => Promise<void> } {
+  const { objectType, pageSize = 100, initialFilter } = options;
+  
+  const [state, setState] = useState<PalantirDataState<T>>({
+    data: [],
+    loading: false,
+    error: null,
+    hasMore: true
+  });
+
+  const { isAuthenticated, accessToken } = auth;
+
+  const fetchData = async (pageToken?: string) => {
+    if (!isAuthenticated || !accessToken || typeof window === 'undefined') {
+      return;
+    }
+
+    setState(prev => ({ ...prev, loading: true, error: null }));
     
-    const [state, setState] = useState<PalantirDataState<T>>({
-      data: [],
-      loading: false,
-      error: null,
-      hasMore: true
-    });
-  
-    const { isAuthenticated, accessToken } = auth;
-  
-    const fetchData = async (pageToken?: string) => {
-      if (!isAuthenticated || !accessToken || typeof window === 'undefined') {
-        return;
-      }
-  
-      setState(prev => ({ ...prev, loading: true, error: null }));
+    try {
+      const FOUNDRY_URL = process.env.NEXT_PUBLIC_FOUNDRY_URL;
+      const ONTOLOGY_RID = process.env.NEXT_PUBLIC_ONTOLOGY_RID;
       
-      try {
-        const FOUNDRY_URL = process.env.NEXT_PUBLIC_FOUNDRY_URL;
-        
-        console.log(`Debug - Environment variables:`, {
-          FOUNDRY_URL,
-          ontologyRid
-        });
-        
-        if (!FOUNDRY_URL || !ontologyRid) {
-          throw new Error(`Missing required values: ${!FOUNDRY_URL ? 'FOUNDRY_URL ' : ''}${!ontologyRid ? 'ontologyRid ' : ''}`);
-        }
-        
-        const requestBody: Record<string, any> = {
-          pageSize: pageSize
-        };
-        
+      console.log(`Debug - Environment variables:`, {
+        FOUNDRY_URL,
+        ONTOLOGY_RID
+      });
+      
+      if (!FOUNDRY_URL || !ONTOLOGY_RID) {
+        throw new Error(`Missing required values: ${!FOUNDRY_URL ? 'FOUNDRY_URL ' : ''}${!ONTOLOGY_RID ? 'NEXT_PUBLIC_ONTOLOGY_RID ' : ''}`);
+      }
+      
+      const requestBody: Record<string, any> = {
+        pageSize: pageSize
+      };
+      
+      if (pageToken) {
+        requestBody.pageToken = pageToken;
+      }
+      
+      if (initialFilter) {
+        requestBody.filter = initialFilter;
+      }
+      
+      const proxyResponse = await fetch('/api/foundry-proxy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          endpoint: `/api/v2/ontologies/${ONTOLOGY_RID}/objects/${objectType}`, 
+          token: accessToken,
+          method: 'GET',
+          requestBody
+        })
+      });
+      
+      if (!proxyResponse.ok) {
+        const errorText = await proxyResponse.text();
+        throw new Error(`API request failed: ${proxyResponse.status} ${proxyResponse.statusText}. Details: ${errorText}`);
+      }
+      
+      const responseData = await proxyResponse.json();
+      
+      if (responseData.data && Array.isArray(responseData.data)) {
         if (pageToken) {
-          requestBody.pageToken = pageToken;
-        }
-        
-        if (initialFilter) {
-          requestBody.filter = initialFilter;
-        }
-        
-        const proxyResponse = await fetch('/api/foundry-proxy', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            endpoint: `/api/v2/ontologies/${ontologyRid}/objects/${objectType}`, 
-            token: accessToken,
-            method: 'GET',
-            requestBody
-          })
-        });
-        
-        if (!proxyResponse.ok) {
-          const errorText = await proxyResponse.text();
-          throw new Error(`API request failed: ${proxyResponse.status} ${proxyResponse.statusText}. Details: ${errorText}`);
-        }
-        
-        const responseData = await proxyResponse.json();
-        
-        if (responseData.data && Array.isArray(responseData.data)) {
-          if (pageToken) {
-            setState(prev => ({
-              data: [...prev.data, ...responseData.data],
-              loading: false,
-              error: null,
-              nextPageToken: responseData.nextPageToken,
-              hasMore: !!responseData.nextPageToken
-            }));
-          } else {
-            setState({
-              data: responseData.data,
-              loading: false,
-              error: null,
-              nextPageToken: responseData.nextPageToken,
-              hasMore: !!responseData.nextPageToken
-            });
-          }
+          setState(prev => ({
+            data: [...prev.data, ...responseData.data],
+            loading: false,
+            error: null,
+            nextPageToken: responseData.nextPageToken,
+            hasMore: !!responseData.nextPageToken
+          }));
         } else {
-          throw new Error('Unexpected response structure from API');
+          setState({
+            data: responseData.data,
+            loading: false,
+            error: null,
+            nextPageToken: responseData.nextPageToken,
+            hasMore: !!responseData.nextPageToken
+          });
         }
-      } catch (err) {
-        console.error(`Error fetching ${objectType}:`, err);
-        setState(prev => ({
-          ...prev,
-          loading: false,
-          error: err instanceof Error ? err : new Error(String(err))
-        }));
+      } else {
+        throw new Error('Unexpected response structure from API');
       }
-    };
-  
-    useEffect(() => {
-      fetchData();
-    }, [isAuthenticated, accessToken]);
-  
-    const loadMore = async () => {
-      if (state.loading || !state.hasMore || !state.nextPageToken) {
-        return;
-      }
-      
-      await fetchData(state.nextPageToken);
-    };
-  
-    return {
-      ...state,
-      loadMore
-    };
-  }
+    } catch (err) {
+      console.error(`Error fetching ${objectType}:`, err);
+      setState(prev => ({
+        ...prev,
+        loading: false,
+        error: err instanceof Error ? err : new Error(String(err))
+      }));
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [isAuthenticated, accessToken]);
+
+  const loadMore = async () => {
+    if (state.loading || !state.hasMore || !state.nextPageToken) {
+      return;
+    }
+    
+    await fetchData(state.nextPageToken);
+  };
+
+  return {
+    ...state,
+    loadMore
+  };
+}
 
 export function useScholarData(
-    auth: AuthState, 
-    ontologyRid: string = process.env.NEXT_PUBLIC_ONTOLOGY_RID || '',
-    pageSize = 290
-  ): PalantirDataState<Scholar> & { loadMore: () => Promise<void> } {
-    return usePalantirData<Scholar>(auth, {
-      objectType: 'Scholar',
-      ontologyRid,
-      pageSize
-    });
-  }
+  auth: AuthState, 
+  pageSize = 290
+): PalantirDataState<Scholar> & { loadMore: () => Promise<void> } {
+  return usePalantirData<Scholar>(auth, {
+    objectType: 'Scholar',
+    pageSize
+  });
+}
 
-  export function usePublicationData(
-    auth: AuthState, 
-    ontologyRid: string = process.env.NEXT_PUBLIC_PUBLICATION_ONTOLOGY_RID || '',
-    pageSize = 100
-  ): PalantirDataState<Publication> & { loadMore: () => Promise<void> } {
-    return usePalantirData<Publication>(auth, {
-      objectType: 'Publication',
-      ontologyRid,
-      pageSize
-    });
-  }
+export function usePublicationData(
+  auth: AuthState, 
+  pageSize = 100
+): PalantirDataState<Publication> & { loadMore: () => Promise<void> } {
+  return usePalantirData<Publication>(auth, {
+    objectType: 'Publications',
+    pageSize
+  });
+}
