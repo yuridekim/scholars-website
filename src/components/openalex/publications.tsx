@@ -1,6 +1,7 @@
 import React, { useState, KeyboardEvent } from 'react';
-import { Check, RefreshCw, LinkIcon, AlertTriangle } from 'lucide-react';
+import { Check, RefreshCw, LinkIcon, AlertTriangle, Database } from 'lucide-react';
 import { GoogleScholarPub } from '@/lib/types';
+import { saveToPalantir } from '@/components/palantir/savePublications';
 
 interface OpenAlexAuthor {
   id: string;
@@ -68,6 +69,8 @@ const OpenAlexScholarSearch: React.FC<OpenAlexScholarSearchProps> = ({
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
   const [isUpToDate, setIsUpToDate] = useState<boolean>(false);
   const [isApiAvailable, setIsApiAvailable] = useState<boolean>(true);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [saveSuccess, setSaveSuccess] = useState<boolean | null>(null);
   
   const searchScholars = async () => {
     if (!searchQuery.trim()) return;
@@ -203,6 +206,46 @@ const OpenAlexScholarSearch: React.FC<OpenAlexScholarSearchProps> = ({
     setLastChecked(null);
     setIsUpToDate(false);
     setSelectedScholar(null);
+    setSaveSuccess(null);
+  };
+  
+  const handleSaveToPalantir = async () => {
+    if (!selectedScholar || (newPublications.length === 0 && existingPublications.length === 0)) {
+      setError("No publications to save to Palantir.");
+      return;
+    }
+    
+    setIsSaving(true);
+    setSaveSuccess(null);
+    setError(null);
+    
+    try {
+      // Format publications for Palantir schema with defaults for nullable fields
+      const publicationsToSave = [...newPublications, ...existingPublications].map(pub => ({
+        id: pub.id || 0,
+        title: pub.title || "",
+        publication_year: pub.pubYear || 0,
+        journal: pub.journal || "",
+        authors: pub.author || "",
+        publication_url: pub.pubUrl || "",
+        num_citations: pub.numCitations || 0,
+        openalex_author_id: selectedScholar?.id || "",
+        openalex_author_name: selectedScholar?.display_name || ""
+      }));
+      
+      // Call the Palantir service to save data
+      await saveToPalantir(publicationsToSave);
+      
+      setSaveSuccess(true);
+      console.log(`Successfully saved ${publicationsToSave.length} publications to Palantir`);
+    } catch (err: unknown) {
+      console.error('Error saving to Palantir:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(`Failed to save to Palantir: ${errorMessage}`);
+      setSaveSuccess(false);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (!isApiAvailable) {
@@ -317,6 +360,24 @@ const OpenAlexScholarSearch: React.FC<OpenAlexScholarSearchProps> = ({
               </button>
               
               <button
+                onClick={handleSaveToPalantir}
+                disabled={isSaving}
+                className="flex items-center text-sm px-3 py-1 rounded bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors duration-200 disabled:opacity-50"
+              >
+                {isSaving ? (
+                  <>
+                    <Database className="h-3 w-3 mr-1 animate-pulse" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Database className="h-3 w-3 mr-1" />
+                    <span>Save to Palantir</span>
+                  </>
+                )}
+              </button>
+              
+              <button
                 onClick={resetSearch}
                 className="text-sm px-3 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors duration-200"
               >
@@ -337,6 +398,22 @@ const OpenAlexScholarSearch: React.FC<OpenAlexScholarSearchProps> = ({
       {error && (
         <div className="p-2 bg-red-50 border border-red-200 rounded mb-4">
           <p className="text-sm text-red-700">{error}</p>
+        </div>
+      )}
+      
+      {saveSuccess === true && (
+        <div className="p-2 bg-green-50 border border-green-200 rounded mb-4">
+          <p className="text-sm text-green-700">
+            Successfully saved publications to Palantir database.
+          </p>
+        </div>
+      )}
+      
+      {saveSuccess === false && !error && (
+        <div className="p-2 bg-red-50 border border-red-200 rounded mb-4">
+          <p className="text-sm text-red-700">
+            Failed to save to Palantir. Please try again.
+          </p>
         </div>
       )}
       

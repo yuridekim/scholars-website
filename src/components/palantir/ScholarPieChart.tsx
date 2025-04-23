@@ -5,12 +5,6 @@ import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from 'recha
 import { useScholarData } from '@/hooks/useScholarData';
 import { AuthState } from '@/hooks/useFoundryAuth';
 
-interface DataItem {
-  name: string;
-  value: number;
-  color?: string;
-}
-
 interface ScholarPieChartProps {
   auth: AuthState;
   title: string;
