@@ -1,7 +1,7 @@
 import React, { useState, KeyboardEvent } from 'react';
 import { Check, RefreshCw, LinkIcon, AlertTriangle, Database } from 'lucide-react';
 import { GoogleScholarPub } from '@/lib/types';
-import { savePublicationsToPalantir } from '@/components/palantir/savePublications';
+import { savePublicationsToPalantir } from '@/components/palantir/palantirPublications';
 import { useFoundryAuth } from '@/hooks/useFoundryAuth';
 
 interface OpenAlexAuthor {
