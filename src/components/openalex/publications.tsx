@@ -1,7 +1,8 @@
 import React, { useState, KeyboardEvent } from 'react';
 import { Check, RefreshCw, LinkIcon, AlertTriangle, Database } from 'lucide-react';
 import { GoogleScholarPub } from '@/lib/types';
-import { saveToPalantir } from '@/components/palantir/savePublications';
+import { savePublicationsToPalantir } from '@/components/palantir/savePublications';
+import { useFoundryAuth } from '@/hooks/useFoundryAuth';
 
 interface OpenAlexAuthor {
   id: string;
@@ -208,6 +209,8 @@ const OpenAlexScholarSearch: React.FC<OpenAlexScholarSearchProps> = ({
     setSelectedScholar(null);
     setSaveSuccess(null);
   };
+
+  const auth = useFoundryAuth();
   
   const handleSaveToPalantir = async () => {
     if (!selectedScholar || (newPublications.length === 0 && existingPublications.length === 0)) {
@@ -234,7 +237,12 @@ const OpenAlexScholarSearch: React.FC<OpenAlexScholarSearchProps> = ({
       }));
       
       // Call the Palantir service to save data
-      await saveToPalantir(publicationsToSave);
+      if (auth.accessToken) {
+        await savePublicationsToPalantir(publicationsToSave, auth.accessToken);
+      } else {
+        setError("Authentication required. Please log in again.");
+        return;
+      }
       
       setSaveSuccess(true);
       console.log(`Successfully saved ${publicationsToSave.length} publications to Palantir`);

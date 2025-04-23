@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from 'recharts';
-import { useScholarData } from '@/hooks/useScholarData';
+import { useScholarData } from '@/hooks/usePalantirData';
 import { AuthState } from '@/hooks/useFoundryAuth';
 
 interface ScholarPieChartProps {
@@ -22,7 +22,7 @@ export function ScholarPieChart({
   fallbackValue = 'Not Specified',
   maxSlices = 7
 }: ScholarPieChartProps): JSX.Element {
-  const { scholars, loading, error } = useScholarData(auth);
+  const { data: scholars, loading, error, loadMore, hasMore } = useScholarData(auth);
   
   const chartData = useMemo(() => {
     if (!scholars.length) return [];
