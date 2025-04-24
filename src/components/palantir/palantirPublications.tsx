@@ -21,8 +21,26 @@ export interface PalantirPublication {
       const ONTOLOGY_RID = process.env.NEXT_PUBLIC_ONTOLOGY_RID;
       
       if (!FOUNDRY_URL || !ONTOLOGY_RID) {
-        throw new Error('Missing required environment variables: FOUNDRY_URL or NEXT_PUBLIC_ONTOLOGY_RID');
+        throw new Error('Missing required environment variables: FOUNDRY_URL or ONTOLOGY_RID');
       }
+      
+      const endpoint = `/api/v2/ontologies/${ONTOLOGY_RID}/actions/create-publications/applyBatch`;
+      
+      const requestBody = {
+        requests: publications.map(pub => ({
+          parameters: {
+            id: pub.id,
+            title: pub.title,
+            publication_year: pub.publication_year,
+            journal: pub.journal,
+            authors: pub.authors,
+            publication_url: pub.publication_url,
+            num_citations: pub.num_citations,
+            openalex_author_id: pub.openalex_author_id,
+            openalex_author_name: pub.openalex_author_name
+          }
+        }))
+      };
       
       const response = await fetch('/api/foundry-proxy', {
         method: 'POST',
@@ -30,21 +48,18 @@ export interface PalantirPublication {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          endpoint: `/api/v2/ontologies/${ONTOLOGY_RID}/objects/Publications`,
+          endpoint,
           token: accessToken,
-          method: 'PUT',
-          requestBody: {
-            objects: publications
-          }
+          method: 'POST',
+          requestBody: requestBody
         })
       });
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(`Palantir API error: ${errorData.message || response.statusText}`);
+        console.error('Full error response:', errorData);
+        throw new Error(`Palantir API error: ${JSON.stringify(errorData)}`);
       }
-      
-      console.log('Publications successfully saved to Palantir');
       
       return Promise.resolve();
     } catch (error) {
