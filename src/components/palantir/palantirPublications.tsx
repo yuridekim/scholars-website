@@ -13,7 +13,7 @@ export interface PalantirPublication {
   openalex_author_name: string;
 }
 
-const publicationService = new PalantirService<PalantirPublication>('Publications');
+const publicationService = new PalantirService<PalantirPublication>('Publications', 'publications');
 
 export const savePublicationsToPalantir = (publications: PalantirPublication[], accessToken: string) =>
   publicationService.saveEntitiesToPalantir(publications, accessToken);
