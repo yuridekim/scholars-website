@@ -29,16 +29,16 @@ export async function GET(request: Request) {
           return {
             id: scholar.id,
             name: scholar.name,
-            emailDomain: scholar.email_domain,
+            emailDomain: scholar.emailDomain,
             affiliation: scholar.affiliation,
-            scholarId: scholar.scholar_id,
+            scholarId: scholar.scholarId,
             citedby: scholar.citedby,
             citedby5y: scholar.citedby5y,
             hindex: scholar.hindex,
             i10index: scholar.i10index,
-            totalPub: scholar.total_pub,
+            totalPub: scholar.totalPub,
             interests: scholar.interests,
-            fullName: scholar.full_name,
+            fullName: scholar.fullName,
             googleScholarPubs: [],
             pubmedPubs: []
           };
@@ -55,16 +55,16 @@ export async function GET(request: Request) {
         return {
           id: scholar.id,
           name: scholar.name,
-          emailDomain: scholar.email_domain,
+          emailDomain: scholar.emailDomain,
           affiliation: scholar.affiliation,
-          scholarId: scholar.scholar_id,
+          scholarId: scholar.scholarId,
           citedby: scholar.citedby,
           citedby5y: scholar.citedby5y,
           hindex: scholar.hindex,
           i10index: scholar.i10index,
-          totalPub: scholar.total_pub,
+          totalPub: scholar.totalPub,
           interests: scholar.interests,
-          fullName: scholar.full_name,
+          fullName: scholar.fullName,
           googleScholarPubs,
           pubmedPubs
         };
