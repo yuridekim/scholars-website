@@ -4,22 +4,22 @@ import { PalantirService, FetchOptions } from '@/components/palantir/commonApi';
 export interface PalantirScholar {
   id: number;
   name: string;
-  email_domain?: string;
+  emailDomain?: string;
   affiliation?: string;
-  scholar_id?: string;
+  scholarId?: string;
   citedby?: number;
   citedby5y?: number;
   hindex?: number;
   hindex5y?: number;
   i10index?: number;
   i10index5y?: number;
-  total_pub?: number;
+  totalPub?: number;
   interests?: string;
   homepage?: string;
-  full_name?: string;
+  fullName?: string;
   method?: string;
-  summary_training_start?: string;
-  created_at: string;
+  summaryTrainingStart?: string;
+  createdAt: string;
 }
 
 const scholarService = new PalantirService<PalantirScholar>('ScholarProfiles', 'scholar-profiles');
@@ -35,3 +35,6 @@ export const deleteScholarFromPalantir = (scholarId: number, accessToken: string
 
 export const fetchScholarsFromPalantir = (accessToken: string, options: FetchOptions = {}) =>
   scholarService.fetchEntitiesFromPalantir(accessToken, options);
+
+export const fetchScholarByIdFromPalantir = (scholarId: string, accessToken: string) =>
+  scholarService.fetchEntityByPrimaryKey(scholarId, accessToken);
