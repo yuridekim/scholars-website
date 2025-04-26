@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Scholar, FilterState, DashboardStats } from '@/lib/types';
+import { useFoundryAuth } from '@/hooks/useFoundryAuth';
 
 interface UseScholarsResult {
     scholars: Scholar[];
@@ -18,6 +19,7 @@ interface UseScholarsResult {
 }
 
 export const useScholars = (): UseScholarsResult => {
+    const auth = useFoundryAuth();
     const [scholars, setScholars] = useState<Scholar[]>([]);
     const [filteredScholars, setFilteredScholars] = useState<Scholar[]>([]);
     const [loading, setLoading] = useState(true);
@@ -37,7 +39,6 @@ export const useScholars = (): UseScholarsResult => {
       averageHIndex: 0,
       yearlyStats: [],
     });
-
 
     const calculateStats = (scholarData: Scholar[]) => {
       // Calculate basic stats
@@ -85,29 +86,61 @@ export const useScholars = (): UseScholarsResult => {
     };
 
     useEffect(() => {
-        fetch('/api/scholars')
-            .then((res) => res.json())
-            .then((data: Scholar[]) => {
+        const fetchScholars = async () => {
+            try {
+                if (!auth.accessToken) {
+                    // If no token is available yet, wait
+                    return;
+                }
+
+                const response = await fetch('/api/scholars', {
+                    headers: {
+                        'Authorization': `Bearer ${auth.accessToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Error ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                
+                if (!Array.isArray(data)) {
+                    console.error('Received non-array data:', data);
+                    setError('Invalid data format received');
+                    setScholars([]);
+                    setFilteredScholars([]);
+                    return;
+                }
+
                 setScholars(data);
                 setFilteredScholars(data);
-                const affiliations = Array.from(new Set(data.map(s => s.affiliation).filter((aff): aff is string => !!aff))).sort();
-                const domains = Array.from(new Set(data.map(s => s.emailDomain).filter((domain): domain is string => !!domain))).sort();
+                
+                const affiliations = Array.from(
+                    new Set(data.map(s => s.affiliation).filter((aff): aff is string => !!aff))
+                ).sort();
+                
+                const domains = Array.from(
+                    new Set(data.map(s => s.emailDomain).filter((domain): domain is string => !!domain))
+                ).sort();
 
                 setUniqueAffiliations(affiliations);
                 setUniqueEmailDomains(domains);
                 calculateStats(data);
+            } catch (err) {
+                console.error('Error fetching scholars:', err);
+                setError(err instanceof Error ? err.message : 'Failed to load scholars');
+            } finally {
                 setLoading(false);
-            })
-            .catch((error) => {
-                console.error('Error fetching scholars:', error);
-                setLoading(false);
-                setError('Failed to load scholars');
-            });
-    }, []);
+            }
+        };
+
+        fetchScholars();
+    }, [auth.accessToken]); // Re-fetch when token changes
 
     useEffect(() => {
         const filtered = scholars.filter(scholar => {
-            const matchesSearch = scholar.name.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesSearch = scholar.name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false;
             const matchesAffiliation = !filters.affiliation || scholar.affiliation === filters.affiliation;
             const matchesEmailDomain = !filters.emailDomain || scholar.emailDomain === filters.emailDomain;
 

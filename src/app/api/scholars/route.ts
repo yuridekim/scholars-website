@@ -1,40 +1,105 @@
 // client/src/app/api/scholars/route.ts
-import { NextResponse } from 'next/server'
-import { PrismaClient, Prisma } from '@prisma/client';
+import { NextResponse } from 'next/server';
+import { PrismaClient } from '@prisma/client';
+import { 
+  fetchScholarsFromPalantir, saveScholarsToPalantir, PalantirScholar 
+} from '@/components/palantir/palantirScholars';
 
 const prisma = new PrismaClient();
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const scholars = await prisma.scholar.findMany({
-      include: {
-        googleScholarPubs: true,
-        pubmedPubs: true
-      }
-    })
-    return NextResponse.json(scholars)
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const accessToken = authHeader.split(' ')[1];
+
+    const response = await fetchScholarsFromPalantir(accessToken);
+    
+    const palantirScholars = Array.isArray(response) ? response : 
+                            response.data ? response.data : [];
+    
+    const scholarsWithPublications = await Promise.all(
+      palantirScholars.map(async (scholar: any) => {
+        const scholarId = scholar.scholar_id;
+        
+        if (!scholarId) {
+          return {
+            id: scholar.id,
+            name: scholar.name,
+            emailDomain: scholar.email_domain,
+            affiliation: scholar.affiliation,
+            scholarId: scholar.scholar_id,
+            citedby: scholar.citedby,
+            citedby5y: scholar.citedby5y,
+            hindex: scholar.hindex,
+            i10index: scholar.i10index,
+            totalPub: scholar.total_pub,
+            interests: scholar.interests,
+            fullName: scholar.full_name,
+            googleScholarPubs: [],
+            pubmedPubs: []
+          };
+        }
+        
+        const googleScholarPubs = await prisma.googleScholarPub.findMany({
+          where: { scholarId }
+        });
+        
+        const pubmedPubs = await prisma.pubmedPub.findMany({
+          where: { scholarId }
+        });
+        
+        return {
+          id: scholar.id,
+          name: scholar.name,
+          emailDomain: scholar.email_domain,
+          affiliation: scholar.affiliation,
+          scholarId: scholar.scholar_id,
+          citedby: scholar.citedby,
+          citedby5y: scholar.citedby5y,
+          hindex: scholar.hindex,
+          i10index: scholar.i10index,
+          totalPub: scholar.total_pub,
+          interests: scholar.interests,
+          fullName: scholar.full_name,
+          googleScholarPubs,
+          pubmedPubs
+        };
+      })
+    );
+    
+    return NextResponse.json(scholarsWithPublications);
   } catch (error) {
+    console.error('Error fetching scholars:', error);
     return NextResponse.json(
       { error: 'Error fetching scholars' }, 
       { status: 500 }
-    )
+    );
   }
 }
 
 export async function POST(request: Request) {
   try {
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const accessToken = authHeader.split(' ')[1];
+
     const body = await request.json();
     const { profile, publications } = body;
     
     console.log('Received profile data:', JSON.stringify(profile, null, 2));
 
-    // Extract email domain from the email
     const emailDomain = profile.email?.toLowerCase()?.split('@')[1] || profile.emailDomain || null;
     const normalizedName = profile.name?.trim()?.toLowerCase();
     const normalizedAffiliation = profile.institution?.trim()?.toLowerCase() || profile.affiliation?.trim()?.toLowerCase();
     const scholarId = profile.scholarId?.trim() || null;
 
-    // Validation
     if (!normalizedName) {
       return NextResponse.json(
         { error: 'Name is required' },
@@ -42,11 +107,14 @@ export async function POST(request: Request) {
       );
     }
 
-    // First check: Look for scholar with exact same Scholar ID
+    const response = await fetchScholarsFromPalantir(accessToken);
+    const palantirScholars = Array.isArray(response) ? response : 
+                            response.data ? response.data : [];
+    
     if (scholarId) {
-      const existingByScholarId = await prisma.scholar.findFirst({
-        where: { scholarId }
-      });
+      const existingByScholarId = palantirScholars.find((s: any) => 
+        s.scholar_id?.toLowerCase() === scholarId.toLowerCase()
+      );
 
       if (existingByScholarId) {
         return NextResponse.json(
@@ -60,38 +128,14 @@ export async function POST(request: Request) {
       }
     }
 
-    // If we have a scholarId and got here, it means this is a new unique scholar
-    // Skip name+affiliation check in this case
     if (!scholarId) {
-      // Only check name + affiliation/email if no scholarId provided
-      const existingByOtherCriteria = await prisma.scholar.findFirst({
-        where: {
-          AND: [
-            {
-              name: {
-                equals: normalizedName,
-                mode: 'insensitive'
-              }
-            },
-            {
-              OR: [
-                ...(emailDomain ? [{
-                  emailDomain: {
-                    equals: emailDomain,
-                    mode: 'insensitive' as Prisma.QueryMode
-                  }
-                }] : []),
-                ...(normalizedAffiliation ? [{
-                  affiliation: {
-                    equals: normalizedAffiliation,
-                    mode: 'insensitive' as Prisma.QueryMode
-                  }
-                }] : [])
-              ]
-            }
-          ]
-        }
-      });
+      const existingByOtherCriteria = palantirScholars.find((s: any) => 
+        s.name?.toLowerCase() === normalizedName &&
+        (
+          (emailDomain && s.email_domain?.toLowerCase() === emailDomain) ||
+          (normalizedAffiliation && s.affiliation?.toLowerCase() === normalizedAffiliation)
+        )
+      );
 
       if (existingByOtherCriteria) {
         return NextResponse.json(
@@ -105,33 +149,45 @@ export async function POST(request: Request) {
       }
     }
 
-    // Create new scholar with publications
-    const scholar = await prisma.$transaction(async (tx) => {
-      const newScholar = await tx.scholar.create({
-        data: {
-          name: profile.name,
-          emailDomain: emailDomain,
-          // Handle different field names from different sources
-          affiliation: profile.institution || profile.affiliation,
-          scholarId: profile.scholarId,
-          // Support both citedby (OpenAlex) and citations (Google Scholar) field names
-          citedby: profile.citedby || profile.citations || null,
-          citedby5y: profile.citedby5y || null,
-          hindex: profile.hindex || null,
-          i10index: profile.i10index || null,
-          totalPub: profile.totalPubs || profile.works_count || null,
-          interests: Array.isArray(profile.interests) ? profile.interests.join(', ') : profile.interests,
-          fullName: profile.name,
-        },
-      });
-
-      // Create publications
+    const palantirScholarData: Partial<PalantirScholar> = {
+      name: profile.name,
+      email_domain: emailDomain,
+      affiliation: profile.institution || profile.affiliation,
+      scholar_id: scholarId,
+      citedby: profile.citedby || profile.citations || null,
+      citedby5y: profile.citedby5y || null,
+      hindex: profile.hindex || null,
+      i10index: profile.i10index || null,
+      total_pub: profile.totalPubs || profile.works_count || null,
+      interests: Array.isArray(profile.interests) ? profile.interests.join(', ') : profile.interests,
+      full_name: profile.name,
+    };
+    
+    try {
+      await saveScholarsToPalantir([palantirScholarData as any], accessToken);
+      
+      const updatedResponse = await fetchScholarsFromPalantir(accessToken);
+      const updatedScholars = Array.isArray(updatedResponse) ? updatedResponse : 
+                           updatedResponse.data ? updatedResponse.data : [];
+      
+      const newScholar = updatedScholars.find((s: any) => 
+        (scholarId && s.scholar_id === scholarId) ||
+        (s.name === profile.name && 
+         (s.email_domain === emailDomain || s.affiliation === (profile.institution || profile.affiliation)))
+      );
+      
+      if (!newScholar) {
+        throw new Error('Failed to find newly created scholar');
+      }
+      
+      const savedPublications = [];
+      
       if (publications && Array.isArray(publications)) {
         for (let i = 0; i < publications.length; i++) {
           const pub = publications[i];
-          await tx.googleScholarPub.create({
+          const newPub = await prisma.googleScholarPub.create({
             data: {
-              scholarId: newScholar.scholarId!,
+              scholarId: scholarId!,
               title: pub.title,
               pubYear: pub.year,
               citation: pub.citation,
@@ -144,13 +200,31 @@ export async function POST(request: Request) {
               pubIndex: i
             }
           });
+          
+          savedPublications.push(newPub);
         }
       }
 
-      return newScholar;
-    });
-
-    return NextResponse.json(scholar);
+      return NextResponse.json({
+        id: newScholar.id,
+        name: newScholar.name,
+        emailDomain: newScholar.email_domain,
+        affiliation: newScholar.affiliation,
+        scholarId: newScholar.scholar_id,
+        citedby: newScholar.citedby,
+        citedby5y: newScholar.citedby5y,
+        hindex: newScholar.hindex,
+        i10index: newScholar.i10index,
+        totalPub: newScholar.total_pub,
+        interests: newScholar.interests,
+        fullName: newScholar.full_name,
+        googleScholarPubs: savedPublications,
+        pubmedPubs: []
+      });
+    } catch (error) {
+      console.error('Error saving to Palantir:', error);
+      throw error;
+    }
   } catch (error) {
     console.error('Error processing scholar:', error);
     return NextResponse.json(

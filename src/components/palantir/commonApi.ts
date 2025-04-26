@@ -181,7 +181,8 @@ export class PalantirService<T extends PalantirEntity> {
         requestBody.filter = options.filter;
       }
       
-      const response = await fetch('/api/foundry-proxy', {
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      const response = await fetch(`${baseUrl}/api/foundry-proxy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
