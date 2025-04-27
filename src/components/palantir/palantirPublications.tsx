@@ -1,17 +1,6 @@
 // src/components/palantir/publications.ts
-import { PalantirService, FetchOptions } from '@/components/palantir/commonApi';
-
-export interface PalantirPublication {
-  id: number;
-  title: string;
-  publication_year: number;
-  journal: string;
-  authors: string;
-  publication_url: string;
-  num_citations: number;
-  openalex_author_id: string;
-  openalex_author_name: string;
-}
+import { PalantirService } from '@/components/palantir/commonApi';
+import { FetchOptions, PalantirPublication } from '@/components/palantir/types';
 
 const publicationService = new PalantirService<PalantirPublication>('Publications', 'publications');
 

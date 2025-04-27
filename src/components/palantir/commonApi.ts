@@ -1,20 +1,5 @@
 // src/components/palantir/common.ts
-
-export interface PalantirEntity {
-  id: number;
-  [key: string]: any;
-}
-
-export interface FetchOptions {
-  pageSize?: number;
-  pageToken?: string;
-  filter?: string;
-}
-
-export interface FetchResponse<T> {
-  data: T[];
-  nextPageToken?: string;
-}
+import { PalantirEntity, FetchOptions, FetchResponse } from '@/components/palantir/types';
 
 export class PalantirService<T extends PalantirEntity> {
   private entityType: string;
@@ -253,6 +238,69 @@ export class PalantirService<T extends PalantirEntity> {
       return entityData as T;
     } catch (error) {
       console.error(`Error fetching ${this.entityType} with ID ${entityId} from Palantir:`, error);
+      throw error;
+    }
+  }
+
+  async fetchLinkedEntities<L extends PalantirEntity>(
+    entityId: string | number,
+    linkName: string,
+    accessToken: string,
+    options: FetchOptions = {}
+  ): Promise<FetchResponse<L>> {
+    try {
+      console.log(`Fetching ${linkName} linked to ${this.entityType} ${entityId} from Palantir...`);
+
+      const FOUNDRY_URL = process.env.NEXT_PUBLIC_FOUNDRY_URL;
+      const ONTOLOGY_RID = process.env.NEXT_PUBLIC_ONTOLOGY_RID;
+
+      if (!FOUNDRY_URL || !ONTOLOGY_RID) {
+        throw new Error('Missing required environment variables');
+      }
+
+      const requestBody: Record<string, any> = {};
+
+      if (options.pageSize) {
+        requestBody.pageSize = options.pageSize;
+      } else {
+        requestBody.pageSize = 10000;
+      }
+
+      if (options.pageToken) {
+        requestBody.pageToken = options.pageToken;
+      }
+
+      if (options.filter) {
+        requestBody.filter = options.filter;
+      }
+
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      const response = await fetch(`${baseUrl}/api/foundry-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          endpoint: `/api/v2/ontologies/${ONTOLOGY_RID}/objects/${this.entityType}/${entityId}/links/${linkName}`,
+          token: accessToken,
+          method: 'GET',
+          requestBody
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Palantir API error: ${errorData.message || response.statusText}`);
+      }
+
+      const responseData = await response.json();
+
+      return {
+        data: responseData.data || [],
+        nextPageToken: responseData.nextPageToken
+      };
+    } catch (error) {
+      console.error(`Error fetching ${linkName} linked to ${this.entityType} ${entityId} from Palantir:`, error);
       throw error;
     }
   }

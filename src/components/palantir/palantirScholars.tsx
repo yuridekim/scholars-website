@@ -1,26 +1,6 @@
 // src/components/palantir/scholars.ts
-import { PalantirService, FetchOptions } from '@/components/palantir/commonApi';
-
-export interface PalantirScholar {
-  id: number;
-  name: string;
-  emailDomain?: string;
-  affiliation?: string;
-  scholarId?: string;
-  citedby?: number;
-  citedby5y?: number;
-  hindex?: number;
-  hindex5y?: number;
-  i10index?: number;
-  i10index5y?: number;
-  totalPub?: number;
-  interests?: string;
-  homepage?: string;
-  fullName?: string;
-  method?: string;
-  summaryTrainingStart?: string;
-  createdAt: string;
-}
+import { PalantirService } from '@/components/palantir/commonApi';
+import { PalantirScholar, PalantirGooglePub, FetchOptions, FetchResponse } from '@/components/palantir/types';
 
 const scholarService = new PalantirService<PalantirScholar>('ScholarProfiles', 'scholar-profiles');
 
@@ -38,3 +18,16 @@ export const fetchScholarsFromPalantir = (accessToken: string, options: FetchOpt
 
 export const fetchScholarByIdFromPalantir = (scholarId: string, accessToken: string) =>
   scholarService.fetchEntityByPrimaryKey(scholarId, accessToken);
+
+export const fetchScholarGooglePubs = (
+  scholarId: string,
+  accessToken: string,
+  options: FetchOptions = {}
+): Promise<FetchResponse<PalantirGooglePub>> => {
+  return scholarService.fetchLinkedEntities<PalantirGooglePub>(
+    scholarId,
+    'GooglePubs', 
+    accessToken,
+    options
+  );
+};

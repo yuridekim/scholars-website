@@ -2,8 +2,8 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { 
-  fetchScholarsFromPalantir, saveScholarsToPalantir, PalantirScholar 
-} from '@/components/palantir/palantirScholars';
+  fetchScholarsFromPalantir, saveScholarsToPalantir} from '@/components/palantir/palantirScholars';
+import { PalantirScholar } from '@/components/palantir/types';
 
 const prisma = new PrismaClient();
 
