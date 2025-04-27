@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { CollapsibleGrants } from '@/components/grants';
 import OpenAlexScholarSearch from '@/components/openalex/publications';
+import { useFoundryAuth } from '@/hooks/useFoundryAuth';
 
 const extractUniqueGrants = (pubs?: PubmedPub[]): Grant[] => {
   if (!pubs) return []
@@ -42,6 +43,25 @@ const ScholarNotFound = ({ onBack }: { onBack: () => void }) => (
       <Card>
         <CardContent className="p-6">
           <h1 className="text-2xl font-bold text-red-600">Scholar not found</h1>
+          <button
+            onClick={onBack}
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Back to Scholars
+          </button>
+        </CardContent>
+      </Card>
+    </div>
+  </div>
+)
+
+const ErrorDisplay = ({ error, onBack }: { error: string, onBack: () => void }) => (
+  <div className="min-h-screen bg-gray-50 p-6">
+    <div className="max-w-7xl mx-auto">
+      <Card>
+        <CardContent className="p-6">
+          <h1 className="text-2xl font-bold text-red-600">Error</h1>
+          <p className="mt-2">{error}</p>
           <button
             onClick={onBack}
             className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
@@ -186,26 +206,65 @@ export default function Page() {
   const [scholar, setScholar] = useState<Scholar | null>(null)
   const [loading, setLoading] = useState(true)
   const [grants, setGrants] = useState<Grant[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [isAuthReady, setIsAuthReady] = useState(false)
+  const auth = useFoundryAuth()
 
   useEffect(() => {
-    if (!scholarId) return;
+    console.log('Auth status updated:', { 
+      isAuthenticated: auth.isAuthenticated, 
+      hasToken: !!auth.accessToken 
+    })
     
-    fetch(`/api/scholars/${scholarId}`)
-      .then((res) => res.json())
-      .then((data: Scholar) => {
+    if (auth.isAuthenticated && auth.accessToken) {
+      setIsAuthReady(true)
+    }
+  }, [auth.isAuthenticated, auth.accessToken])
+
+  useEffect(() => {
+    if (!scholarId || !isAuthReady) return
+    
+    const fetchScholar = async () => {
+      try {
+        setLoading(true)
+        
+        const response = await fetch(`/api/scholars/${scholarId}`, {
+          headers: {
+            'Authorization': `Bearer ${auth.accessToken}`
+          }
+        })
+        
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(`Error ${response.status}: ${errorText}`)
+        }
+    
+        const data: Scholar = await response.json()
         setScholar(data)
         const uniqueGrants = extractUniqueGrants(data.pubmedPubs)
         setGrants(uniqueGrants)
-        setLoading(false)
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error('Error fetching scholar:', error)
+        setError(error instanceof Error ? error.message : 'An error occurred')
+      } finally {
         setLoading(false)
-      })
-  }, [scholarId])
+      }
+    }
+  
+    fetchScholar()
+  }, [scholarId, isAuthReady])
 
-  if (loading) return <LoadingSpinner />
-  if (!scholar) return <ScholarNotFound onBack={() => router.push('/scholars')} />
+  if (!isAuthReady || loading) {
+    return <LoadingSpinner />
+  }
+  
+  if (error) {
+    return <ErrorDisplay error={error} onBack={() => router.push('/scholars')} />
+  }
+  
+  if (!scholar) {
+    return <ScholarNotFound onBack={() => router.push('/scholars')} />
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
