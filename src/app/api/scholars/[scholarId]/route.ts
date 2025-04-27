@@ -1,7 +1,10 @@
 // /api/scholars/[scholarId]/route.ts
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import { fetchScholarByIdFromPalantir } from '@/components/palantir/palantirScholars';
+import { 
+  fetchScholarByIdFromPalantir, 
+  fetchScholarGooglePubs 
+} from '@/components/palantir/palantirScholars';
 
 const prisma = new PrismaClient();
 
@@ -33,8 +36,6 @@ export async function GET(
       
       const palantirScholar = await fetchScholarByIdFromPalantir(scholarIdParam, accessToken);
       
-      console.log(`Palantir API response received`);
-      
       if (!palantirScholar) {
         console.log("No scholar found with the provided ID");
         return NextResponse.json(
@@ -43,10 +44,10 @@ export async function GET(
         );
       }
       
-      const googleScholarPubs = await prisma.googleScholarPub.findMany({
-        where: { scholarId: palantirScholar.scholarId || '' },
-        orderBy: { pubYear: 'desc' }
-      });
+      const googleScholarPubsResponse = await fetchScholarGooglePubs(
+        palantirScholar.scholarId || '', accessToken);
+      
+      const googleScholarPubs = googleScholarPubsResponse.data || [];
       
       const pubmedPubs = await prisma.pubmedPub.findMany({
         where: { scholarId: palantirScholar.scholarId || '' },
@@ -75,13 +76,16 @@ export async function GET(
       
       return NextResponse.json(scholar);
     } catch (palantirError) {
-      console.error("🔍 Debug: Error in Palantir API call:", palantirError);
-      throw palantirError;
+      console.error("Error in Palantir API call:", palantirError);
+      return NextResponse.json(
+        { error: `Palantir API error: ${palantirError instanceof Error ? palantirError.message : String(palantirError)}` },
+        { status: 500 }
+      );
     }
   } catch (error) {
-    console.error('🔍 Debug: Error fetching scholar:', error);
+    console.error('Error fetching scholar:', error);
     return NextResponse.json(
-      { error: 'Error fetching scholar' },
+      { error: 'Error fetching scholar data' },
       { status: 500 }
     );
   }
