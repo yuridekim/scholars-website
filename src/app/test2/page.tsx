@@ -5,6 +5,7 @@ import {
   fetchPubMedByIdFromPalantir,
   fetchPubMedScholars
 } from '@/components/palantir/pubMed';
+import { FetchOptions } from '@/components/palantir/types';
 import { PalantirPubMed, PalantirScholar, FetchResponse } from '@/components/palantir/types';
 import { useFoundryAuth } from '@/hooks/useFoundryAuth';
 
@@ -24,7 +25,8 @@ const PubMedFetchTest = (): React.ReactElement => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [pubMedList, setPubMedList] = useState<PalantirPubMed[]>([]);
-  const [selectedPubId, setSelectedPubId] = useState<string>('');
+  const [selectedPmid, setSelectedPmid] = useState<number | null>(null);
+  const [pmidInput, setPmidInput] = useState<string>('');
   const [selectedPub, setSelectedPub] = useState<PalantirPubMed | null>(null);
   const [scholars, setScholars] = useState<PalantirScholar[]>([]);
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
@@ -32,8 +34,8 @@ const PubMedFetchTest = (): React.ReactElement => {
 
   // Direct fetch test to help identify issues
   const testDirectFetch = async () => {
-    if (!auth.isAuthenticated) {
-      setError('Not authenticated. Please log in first.');
+    if (!auth.isAuthenticated || !auth.accessToken) {
+      setError('Not authenticated or missing access token. Please log in first.');
       return;
     }
     
@@ -48,7 +50,7 @@ const PubMedFetchTest = (): React.ReactElement => {
       console.log('Authentication status:', auth.isAuthenticated ? 'Authenticated' : 'Not authenticated');
       console.log('Using accessToken:', auth.accessToken ? `${auth.accessToken.substring(0, 10)}...` : 'None available');
       
-      // Try a simpler version of the fetch to identify what's happening
+      // Now we're sure accessToken is not null
       const response = await fetchPubMedFromPalantir(auth.accessToken);
       
       debug.responseStatus = 200; // If we get here, we succeeded
@@ -71,6 +73,11 @@ const PubMedFetchTest = (): React.ReactElement => {
   const handleFetchAll = async () => {
     if (!auth.isAuthenticated) {
       setError('Not authenticated. Please log in first.');
+      return;
+    }
+    
+    if (!auth.accessToken) {
+      setError('Access token is not available. Please log in again.');
       return;
     }
   
@@ -112,15 +119,27 @@ const PubMedFetchTest = (): React.ReactElement => {
     }
   };
 
+  // Handle input change and convert to number
+  const handlePmidInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPmidInput(e.target.value);
+    const numValue = parseInt(e.target.value);
+    setSelectedPmid(isNaN(numValue) ? null : numValue);
+  };
+
   // Fetch a specific PubMed entity by ID with better error handling
   const handleFetchById = async () => {
     if (!auth.isAuthenticated) {
       setError('Not authenticated. Please log in first.');
       return;
     }
+    
+    if (!auth.accessToken) {
+      setError('Access token is not available. Please log in again.');
+      return;
+    }
   
-    if (!selectedPubId) {
-      setError('Please enter a PubMed ID');
+    if (selectedPmid === null) {
+      setError('Please enter a valid PubMed ID (must be a number)');
       return;
     }
 
@@ -129,9 +148,9 @@ const PubMedFetchTest = (): React.ReactElement => {
     setDebugInfo(null);
     
     try {
-      console.log(`Fetching PubMed by ID ${selectedPubId}`);
+      console.log(`Fetching PubMed by PMID ${selectedPmid}`);
       
-      const response = await fetchPubMedByIdFromPalantir(selectedPubId, auth.accessToken);
+      const response = await fetchPubMedByIdFromPalantir(selectedPmid, auth.accessToken);
       
       // Check if response is valid
       if (!response) {
@@ -139,9 +158,9 @@ const PubMedFetchTest = (): React.ReactElement => {
       }
       
       setSelectedPub(response);
-      console.log('Fetched PubMed by ID:', response);
+      console.log('Fetched PubMed by PMID:', response);
     } catch (err) {
-      console.error('Error fetching PubMed by ID:', err);
+      console.error('Error fetching PubMed by PMID:', err);
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
       setError(errorMessage);
     } finally {
@@ -155,9 +174,14 @@ const PubMedFetchTest = (): React.ReactElement => {
       setError('Not authenticated. Please log in first.');
       return;
     }
+    
+    if (!auth.accessToken) {
+      setError('Access token is not available. Please log in again.');
+      return;
+    }
   
-    if (!selectedPubId) {
-      setError('Please enter a PubMed ID');
+    if (selectedPmid === null) {
+      setError('Please enter a valid PubMed ID (must be a number)');
       return;
     }
 
@@ -166,12 +190,11 @@ const PubMedFetchTest = (): React.ReactElement => {
     setDebugInfo(null);
     
     try {
-      console.log(`Fetching scholars for PubMed ID ${selectedPubId}`);
+      console.log(`Fetching scholars for PubMed PMID ${selectedPmid}`);
       
       const response = await fetchPubMedScholars(
-        selectedPubId,
-        'ScholarProfiles',
-        auth.accessToken
+        selectedPmid,
+        auth.accessToken,
       );
       
       // Check if response is valid
@@ -227,10 +250,10 @@ const PubMedFetchTest = (): React.ReactElement => {
 
         <div style={{ margin: '15px 0' }}>
           <input
-            type="text"
-            value={selectedPubId}
-            onChange={(e) => setSelectedPubId(e.target.value)}
-            placeholder="Enter PubMed ID"
+            type="number"
+            value={pmidInput}
+            onChange={handlePmidInputChange}
+            placeholder="Enter PubMed ID (number)"
             style={{ 
               padding: '8px',
               marginRight: '10px',
@@ -252,7 +275,7 @@ const PubMedFetchTest = (): React.ReactElement => {
               cursor: loading ? 'not-allowed' : 'pointer'
             }}
           >
-            Fetch by ID
+            Fetch by PMID
           </button>
           <button
             onClick={handleFetchScholars}
@@ -304,7 +327,7 @@ const PubMedFetchTest = (): React.ReactElement => {
         </div>
         
         {/* Display debugging info */}
-                    {showDebug && (
+        {showDebug && (
           <div style={{ marginTop: '15px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
             <h4 style={{ marginTop: 0 }}>Debugging Information</h4>
             <p style={{ margin: '5px 0' }}>
@@ -365,7 +388,7 @@ const PubMedFetchTest = (): React.ReactElement => {
           <div className="results-list" style={{ maxHeight: '300px', overflow: 'auto' }}>
             {pubMedList.map((pub, index) => (
               <div 
-                key={pub.id || index} 
+                key={pub.pmid || index} 
                 className="result-item"
                 style={{ 
                   padding: '10px', 
@@ -374,9 +397,12 @@ const PubMedFetchTest = (): React.ReactElement => {
                   borderRadius: '4px',
                   cursor: 'pointer'
                 }}
-                onClick={() => setSelectedPubId(pub.id?.toString() || '')}
+                onClick={() => {
+                  setPmidInput(pub.pmid?.toString() || '');
+                  setSelectedPmid(pub.pmid || null);
+                }}
               >
-                <div><strong>ID:</strong> {pub.id}</div>
+                <div><strong>PMID:</strong> {pub.pmid}</div>
                 <div><strong>Title:</strong> {pub.title}</div>
               </div>
             ))}

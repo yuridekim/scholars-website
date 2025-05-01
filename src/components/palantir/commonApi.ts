@@ -198,7 +198,7 @@ export class PalantirService<T extends PalantirEntity> {
   }
 
   async fetchEntityByPrimaryKey(
-    entityId: string,
+    entityId: string | number,
     accessToken: string
   ): Promise<T | null> {
     try {
@@ -274,26 +274,53 @@ export class PalantirService<T extends PalantirEntity> {
         requestBody.filter = options.filter;
       }
 
+      // Build the endpoint URL for logging
+      const endpoint = `/api/v2/ontologies/${ONTOLOGY_RID}/objects/${this.entityType}/${entityId}/links/${linkName}`;
+      
+      // Log the full constructed endpoint URL with all parameters
+      console.log('Full API endpoint:', `${FOUNDRY_URL}${endpoint}`);
+      console.log('Entity Type:', this.entityType);
+      console.log('Entity ID:', entityId);
+      console.log('Link Name:', linkName);
+      console.log('Request Body:', JSON.stringify(requestBody, null, 2));
+      
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      console.log('Using proxy URL:', `${baseUrl}/api/foundry-proxy`);
+      
       const response = await fetch(`${baseUrl}/api/foundry-proxy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          endpoint: `/api/v2/ontologies/${ONTOLOGY_RID}/objects/${this.entityType}/${entityId}/links/${linkName}`,
+          endpoint: endpoint,
           token: accessToken,
           method: 'GET',
           requestBody
         })
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`Palantir API error: ${errorData.message || response.statusText}`);
+      // Log the response status and headers
+      console.log('Response status:', response.status);
+      console.log('Response status text:', response.statusText);
+      
+      // Try to get the response as text first for logging
+      const responseText = await response.text();
+      console.log('Raw response:', responseText);
+      
+      // Parse the text back to JSON for processing
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (e) {
+        console.error('Failed to parse response as JSON:', e);
+        throw new Error(`Invalid JSON response: ${responseText.substring(0, 200)}...`);
       }
 
-      const responseData = await response.json();
+      if (!response.ok) {
+        console.error('Error response:', responseData);
+        throw new Error(`Palantir API error: ${responseData.message || response.statusText} (Status: ${response.status})`);
+      }
 
       return {
         data: responseData.data || [],
