@@ -1,6 +1,6 @@
 // src/components/palantir/scholars.ts
 import { PalantirService } from '@/components/palantir/commonApi';
-import { PalantirScholar, PalantirGooglePub, FetchOptions, FetchResponse } from '@/components/palantir/types';
+import { PalantirScholar, PalantirGooglePub, FetchOptions, FetchResponse, PalantirPubMed } from '@/components/palantir/types';
 
 const scholarService = new PalantirService<PalantirScholar>('ScholarProfiles', 'scholar-profiles');
 
@@ -31,3 +31,18 @@ export const fetchScholarGooglePubs = (
     options
   );
 };
+
+export const fetchScholarPubMed = (
+  scholarId: string,
+  accessToken: string,
+  options: FetchOptions = {}
+): Promise<FetchResponse<PalantirPubMed>> => {
+  return scholarService.fetchLinkedEntities<PalantirPubMed>(
+    scholarId,
+    // 'PubMed',
+    'PalantirPubMeds', // has to be plural
+    accessToken,
+    options
+  );
+};
+

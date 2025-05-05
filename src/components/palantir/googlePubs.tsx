@@ -26,7 +26,7 @@ export const fetchGooglePubScholars = (
 ): Promise<FetchResponse<PalantirScholar>> => {
   return googlePubService.fetchLinkedEntities<PalantirScholar>(
     pubId,
-    'ScholarProfiles',
+    'ScholarProfile', // has to be single
     accessToken,
     options
   );

@@ -64,3 +64,24 @@ export interface PalantirEntity {
     openalex_author_id: string;
     openalex_author_name: string;
   }
+
+  export interface PalantirPubMed extends PalantirEntity {
+    paperId: number;
+    abstract: string;
+    abstractText: string;
+    affiliations: string;
+    authors: string;
+    dictError: number;
+    doi: string;
+    grantSupport: string;
+    keywords: string;
+    meShTerms: string;
+    name: string;
+    pmid: number;
+    pubIndex: number;
+    publicationType: string;
+    recordId: number;
+    scholarId: string;
+    timestamp: string;
+    title: string;
+  }
