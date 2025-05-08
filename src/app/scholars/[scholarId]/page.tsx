@@ -10,24 +10,37 @@ import OpenAlexScholarSearch from '@/components/openalex/publications';
 import { useFoundryAuth } from '@/hooks/useFoundryAuth';
 
 const extractUniqueGrants = (pubs?: PubmedPub[]): Grant[] => {
-  if (!pubs) return []
-  const uniqueGrantIds = new Set<string>()
-  const uniqueGrants: Grant[] = []
+  if (!pubs) return [];
+  const uniqueGrantIds = new Set<string>();
+  const uniqueGrants: Grant[] = [];
 
   pubs.forEach(pub => {
-    if (pub.grantSupport) {
-      pub.grantSupport.forEach(grant => {
-        const grantKey = grant.GrantID + grant.Agency
-        if (!uniqueGrantIds.has(grantKey) && grant.GrantID !== 'Not available') {
-          uniqueGrantIds.add(grantKey)
-          uniqueGrants.push(grant)
-        }
-      })
+    let grantsArray: Grant[] = [];
+    
+    if (typeof pub.grantSupport === 'string') {
+      try {
+        const jsonString = pub.grantSupport.replace(/'/g, '"');
+        grantsArray = JSON.parse(jsonString);
+      } catch (error) {
+        console.error('Error parsing grantSupport string:', error);
+      }
+    } else if (Array.isArray(pub.grantSupport)) {
+      grantsArray = pub.grantSupport;
     }
-  })
+    
+    if (Array.isArray(grantsArray)) {
+      grantsArray.forEach((grant: Grant) => {
+        const grantKey = grant.GrantID + grant.Agency;
+        if (!uniqueGrantIds.has(grantKey) && grant.GrantID !== 'Not available') {
+          uniqueGrantIds.add(grantKey);
+          uniqueGrants.push(grant);
+        }
+      });
+    }
+  });
 
-  return uniqueGrants
-}
+  return uniqueGrants;
+};
 
 const LoadingSpinner = () => (
   <div className="min-h-screen bg-gray-50 p-6">

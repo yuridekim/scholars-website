@@ -3,7 +3,8 @@ import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { 
   fetchScholarByIdFromPalantir, 
-  fetchScholarGooglePubs 
+  fetchScholarGooglePubs,
+  fetchScholarPubMed
 } from '@/components/palantir/palantirScholars';
 
 const prisma = new PrismaClient();
@@ -49,10 +50,10 @@ export async function GET(
       
       const googleScholarPubs = googleScholarPubsResponse.data || [];
       
-      const pubmedPubs = await prisma.pubmedPub.findMany({
-        where: { scholarId: palantirScholar.scholarId || '' },
-        orderBy: { pubIndex: 'desc' }
-      });
+      const pubmedPubsResponse = await fetchScholarPubMed(
+        palantirScholar.scholarId || '', accessToken);
+      
+      const pubmedPubs = pubmedPubsResponse.data || [];
       
       const scholar = {
         id: palantirScholar.id,

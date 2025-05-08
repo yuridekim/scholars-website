@@ -44,7 +44,7 @@ export type PubmedPub = {
   meshTerms: string[];
   publicationType: string[];
   keywords: string[];
-  grantSupport?: Grant[] | null
+  grantSupport?: string | Grant[] | any;
 }
 export type Grant = {
   GrantID: string
