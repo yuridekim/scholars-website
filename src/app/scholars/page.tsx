@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ManualScholarEntry, ScholarStats, ScholarList, AddScholar, ScholarFilters } from '@/components/scholars';
 import { useScholars } from '@/hooks/useScholars';
 import { useFoundryAuth } from '@/hooks/useFoundryAuth';
 import AuthComponent from '@/components/auth/AuthComponent';
-import { Download, AlertTriangle } from 'lucide-react';
+import { Download, AlertTriangle, RefreshCw } from 'lucide-react';
 
 export default function ScholarsPage() {
     const router = useRouter();
@@ -37,8 +37,24 @@ export default function ScholarsPage() {
     });
 
     const [filterShowState, setFilterShowState] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [refreshTooltip, setRefreshTooltip] = useState(false);
 
     const isSessionInvalid = !auth.accessToken || (auth.expiresAt && Date.now() >= auth.expiresAt);
+
+    const handleRefresh = async () => {
+        if (isSessionInvalid) return;
+        
+        setIsRefreshing(true);
+        await refreshScholars();
+        
+        setTimeout(() => {
+            setIsRefreshing(false);
+            
+            setRefreshTooltip(true);
+            setTimeout(() => setRefreshTooltip(false), 3000);
+        }, 1000);
+    };
 
     const handleExport = () => {
         if (isSessionInvalid || filteredScholars.length === 0) return;
@@ -90,7 +106,7 @@ export default function ScholarsPage() {
 
             await response.json();
             
-            refreshScholars();
+            handleRefresh();
             
             setShowManualEntry(false);
             setManualEntry({
@@ -131,15 +147,35 @@ export default function ScholarsPage() {
                     >
                         Scholar Performance Tracker
                     </h1>
-                    {!isSessionInvalid && filteredScholars.length > 0 && (
-                        <div className="flex gap-4">
-                            <button
-                                onClick={handleExport}
-                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                            >
-                                <Download size={20} />
-                                Export Data ({filteredScholars.length} scholars)
-                            </button>
+                    {!isSessionInvalid && (
+                        <div className="flex gap-4 items-center">
+                            <div className="relative">
+                                <button
+                                    onClick={handleRefresh}
+                                    disabled={isRefreshing}
+                                    className="flex items-center gap-2 px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+                                    title="Refresh scholar data"
+                                >
+                                    <RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} />
+                                    {isRefreshing ? 'Refreshing...' : 'Refresh'}
+                                </button>
+                                
+                                {refreshTooltip && (
+                                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap">
+                                        Data refreshed successfully
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {filteredScholars.length > 0 && (
+                                <button
+                                    onClick={handleExport}
+                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                >
+                                    <Download size={20} />
+                                    Export Data ({filteredScholars.length} scholars)
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
@@ -157,17 +193,12 @@ export default function ScholarsPage() {
                     </div>
                 )}
 
-                {/* Always show AddScholar component because it handles its own authentication state */}
                 <AddScholar
                     searchQuery={searchQuery}
                     setSearchQuery={setSearchQuery}
                     showManualEntry={showManualEntry}
                     setShowManualEntry={setShowManualEntry}
-                    onScholarAdded={() => {
-                        if (!isSessionInvalid) {
-                            refreshScholars();
-                        }
-                    }}
+                    onScholarAdded={handleRefresh}
                 />
 
                 <AuthComponent>

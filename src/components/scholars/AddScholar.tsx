@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Separator } from '@/components/ui/separator';
 import { saveScholarToPalantir } from '@/components/palantir/palantirScholars';
 import { useFoundryAuth } from '@/hooks/useFoundryAuth';
+import { CheckCircle2, AlertCircle } from 'lucide-react';
 
 // Interface for OpenAlex API responses
 interface OpenAlexScholar {
@@ -50,6 +51,16 @@ const AddScholar: React.FC<AddScholarProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [addingScholarId, setAddingScholarId] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [addedScholars, setAddedScholars] = useState<Set<string>>(new Set());
+  
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => {
+        setSuccessMessage(null);
+      }, 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
 
   const searchOpenAlexScholars = async () => {
     if (!searchQuery.trim()) return;
@@ -107,7 +118,6 @@ const AddScholar: React.FC<AddScholarProps> = ({
   const addScholar = async (scholar: OpenAlexScholar) => {
     setAddingScholarId(scholar.id);
     setError(null);
-    setSuccessMessage(null);
     
     const citedby5y = calculateCitations5Years(scholar);
     
@@ -143,11 +153,10 @@ const AddScholar: React.FC<AddScholarProps> = ({
       
       await saveScholarToPalantir(palantirScholar, auth.accessToken);
       
-      setSuccessMessage(`${scholar.display_name} successfully added to Palantir!`);
+      setAddedScholars(prev => new Set(prev).add(scholar.id));
       
-      if (onScholarAdded) {
-        onScholarAdded();
-      }
+      setSuccessMessage(`${scholar.display_name} successfully added to Palantir! Click "Refresh" to update the list.`);
+      
     } catch (err) {
       console.error('Error adding scholar to Palantir:', err);
       setError(`Failed to add scholar: ${err instanceof Error ? err.message : String(err)}`);
@@ -178,21 +187,21 @@ const AddScholar: React.FC<AddScholarProps> = ({
 
   return (
     <>
-<div className="mb-4">
-  <h3 className="font-medium mb-2">Authentication Status</h3>
-  <div className="p-2 bg-gray-100 rounded">
-    {auth.accessToken && auth.isAuthenticated ? (
-      <div className="text-green-600">
-        ✓ Authenticated with Foundry
-      </div>
-    ) : (
-      <div className="text-red-600">
-        {auth.accessToken && auth.expiresAt && Date.now() >= auth.expiresAt 
-          ? "✗ Session expired. Please login again." 
-          : "✗ Not authenticated. Please login first."}
-      </div>
-    )}
-  </div>
+      <div className="mb-4">
+        <h3 className="font-medium mb-2">Authentication Status</h3>
+        <div className="p-2 bg-gray-100 rounded">
+          {auth.accessToken && auth.isAuthenticated ? (
+            <div className="text-green-600">
+              ✓ Authenticated with Foundry
+            </div>
+          ) : (
+            <div className="text-red-600">
+              {auth.accessToken && auth.expiresAt && Date.now() >= auth.expiresAt 
+                ? "✗ Session expired. Please login again." 
+                : "✗ Not authenticated. Please login first."}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="mb-6">
@@ -206,12 +215,19 @@ const AddScholar: React.FC<AddScholarProps> = ({
       </div>
 
       {error && (
-        <p className="text-red-500 mt-2 mb-4">{error}</p>
+        <div className="flex items-center bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <AlertCircle className="h-5 w-5 mr-2" />
+          <p>{error}</p>
+        </div>
       )}
       
       {successMessage && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-          {successMessage}
+        <div className="flex items-center bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4 animate-fadeIn">
+          <CheckCircle2 className="h-5 w-5 mr-2 text-green-500" />
+          <div>
+            <p className="font-medium">{successMessage}</p>
+            <p className="text-sm text-green-600">Use the Refresh button when ready to update the scholar list.</p>
+          </div>
         </div>
       )}
 
@@ -243,36 +259,56 @@ const AddScholar: React.FC<AddScholarProps> = ({
         <div className="mt-4">
           <h2 className="text-xl font-semibold mb-2">Potential Matches from OpenAlex</h2>
           <div className="space-y-4">
-            {scholars.map((scholar) => (
-              <div 
-                key={scholar.id} 
-                className="p-4 border rounded shadow-sm bg-white hover:bg-gray-50"
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-medium">{scholar.display_name}</p>
-                    <p className="text-sm text-gray-500">{getAffiliation(scholar)}</p>
-                    <p className="text-xs text-gray-400">ID: {extractOpenAlexId(scholar.id)}</p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Works: {scholar.works_count} | 
-                      Citations: {scholar.cited_by_count} | 
-                      h-index: {scholar.summary_stats?.h_index || 'N/A'} |
-                      i10-index: {scholar.summary_stats?.i10_index || 'N/A'}
-                      {calculateCitations5Years(scholar) && (
-                        <> | Citations (5y): {calculateCitations5Years(scholar)}</>
-                      )}
-                    </p>
+            {scholars.map((scholar) => {
+              const isAdded = addedScholars.has(scholar.id);
+              
+              return (
+                <div 
+                  key={scholar.id} 
+                  className={`p-4 border rounded shadow-sm ${isAdded ? 'bg-green-50 border-green-200' : 'bg-white hover:bg-gray-50'}`}
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center">
+                        <p className="font-medium">{scholar.display_name}</p>
+                        {isAdded && (
+                          <span className="ml-2 text-xs font-medium px-2 py-1 bg-green-100 text-green-800 rounded-full">
+                            Added to Palantir
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-500">{getAffiliation(scholar)}</p>
+                      <p className="text-xs text-gray-400">ID: {extractOpenAlexId(scholar.id)}</p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Works: {scholar.works_count} | 
+                        Citations: {scholar.cited_by_count} | 
+                        h-index: {scholar.summary_stats?.h_index || 'N/A'} |
+                        i10-index: {scholar.summary_stats?.i10_index || 'N/A'}
+                        {calculateCitations5Years(scholar) && (
+                          <> | Citations (5y): {calculateCitations5Years(scholar)}</>
+                        )}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => addScholar(scholar)}
+                      disabled={addingScholarId === scholar.id || !auth?.accessToken || isAdded}
+                      className={`px-4 py-2 rounded transition-colors ml-4 whitespace-nowrap ${
+                        isAdded 
+                          ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                          : 'bg-green-500 text-white hover:bg-green-600 disabled:bg-green-300 disabled:cursor-not-allowed'
+                      }`}
+                    >
+                      {addingScholarId === scholar.id 
+                        ? 'Adding...' 
+                        : isAdded 
+                          ? 'Added ✓' 
+                          : 'Add to Palantir'
+                      }
+                    </button>
                   </div>
-                  <button
-                    onClick={() => addScholar(scholar)}
-                    disabled={addingScholarId === scholar.id || !auth?.accessToken}
-                    className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:bg-green-300 disabled:cursor-not-allowed transition-colors ml-4 whitespace-nowrap"
-                  >
-                    {addingScholarId === scholar.id ? 'Adding...' : 'Add to Palantir'}
-                  </button>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
