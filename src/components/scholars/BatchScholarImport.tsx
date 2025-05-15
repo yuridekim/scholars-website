@@ -48,29 +48,29 @@ const BatchScholarImport: React.FC<BatchScholarImportProps> = ({ onScholarAdded 
     });
   };
 
-  const initializeScholars = (scholarList: CSVScholar[]) => {
-    const initialProcessed = scholarList.map(scholar => {
-      const providedOpenAlexId = scholar.openalex_id && scholar.openalex_id.trim() !== '' ? scholar.openalex_id.trim() : undefined;
-      if (providedOpenAlexId) {
-        return {
-          csvData: { ...scholar, openalex_id: providedOpenAlexId },
-          status: 'ready' as const,
-          message: 'Ready to import with provided OpenAlex ID.'
-        };
-      } else {
-        return {
-          csvData: scholar,
-          status: 'needs_confirmation' as const,
-          message: 'OpenAlex ID required. Search and select a match, or provide ID in CSV.',
-          matchOptions: [],
-          expanded: false,
-          isSearching: false
-        };
-      }
-    });
-    setProcessedScholars(initialProcessed);
-    updateOverallStatus(initialProcessed);
-  };
+const initializeScholars = (scholarList: CSVScholar[]) => {
+  const initialProcessed = scholarList.map(scholar => {
+    const providedOpenAlexId = scholar.openalex_id && scholar.openalex_id.trim() !== '' ? scholar.openalex_id.trim() : undefined;
+    if (providedOpenAlexId) {
+      return {
+        csvData: { ...scholar, openalex_id: providedOpenAlexId },
+        status: 'ready' as const,
+        message: 'Ready to import with provided OpenAlex ID. Full details will be fetched during import.'
+      };
+    } else {
+      return {
+        csvData: scholar,
+        status: 'needs_confirmation' as const,
+        message: 'OpenAlex ID required. Search and select a match, or provide ID in CSV.',
+        matchOptions: [],
+        expanded: false,
+        isSearching: false
+      };
+    }
+  });
+  setProcessedScholars(initialProcessed);
+  updateOverallStatus(initialProcessed);
+};
 
   const updateOverallStatus = (scholarsToUpdate: typeof processedScholars) => {
     const status = {

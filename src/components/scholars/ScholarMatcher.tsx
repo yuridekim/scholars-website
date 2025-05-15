@@ -3,7 +3,7 @@ import React from 'react';
 import axios from 'axios';
 import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { CSVScholar, OpenAlexScholar, ProcessedScholarItem } from './batchImportTypes';
-import { extractOpenAlexId, getAffiliation } from './batchImportUtils';
+import { extractOpenAlexId, getAffiliation, fetchAuthorById } from './batchImportUtils';
 import { saveScholarToPalantir } from '@/components/palantir/palantirScholars';
 
 interface ScholarMatcherProps {
@@ -133,105 +133,137 @@ const ScholarMatcher: ScholarMatcherComponentType = ({
     });
   };
 
-  const importScholar = async (scholarIndex: number) => {
-    if (!authToken) return false;
+const importScholar = async (scholarIndex: number) => {
+  if (!authToken) return false;
+  
+  setScholars(prevScholars => {
+    const updatedScholars = [...prevScholars];
+    updatedScholars[scholarIndex] = { 
+      ...updatedScholars[scholarIndex], 
+      status: 'processing',
+      message: 'Importing...' 
+    };
+    return updatedScholars;
+  });
+
+  try {
+    const scholarData = scholars[scholarIndex];
+    let openAlexIdToUse: string = '';
+    let affiliationFromOpenAlex: string = '';
+    let openAlexWorksCount: number = 0;
+    let openAlexCitedByCount: number = 0;
+    let openAlexHIndex: number | undefined = undefined;
+    let openAlexI10Index: number | undefined = undefined;
+    let authorData: OpenAlexScholar | null = null;
+
+    if (scholarData.selectedMatch) {
+      authorData = scholarData.selectedMatch;
+      openAlexIdToUse = extractOpenAlexId(authorData.id);
+    } 
+    else if (scholarData.csvData.openalex_id) {
+      try {
+        setScholars(prevScholars => {
+          const updatedScholars = [...prevScholars];
+          updatedScholars[scholarIndex] = { 
+            ...updatedScholars[scholarIndex], 
+            message: 'Fetching data from OpenAlex...' 
+          };
+          return updatedScholars;
+        });
+        
+        openAlexIdToUse = extractOpenAlexId(scholarData.csvData.openalex_id);
+        authorData = await fetchAuthorById(openAlexIdToUse);
+        
+        if (!authorData) {
+          throw new Error(`No author found with ID: ${openAlexIdToUse}`);
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch author details for ID ${openAlexIdToUse}:`, error);
+        setScholars(prevScholars => {
+          const updatedScholars = [...prevScholars];
+          updatedScholars[scholarIndex] = { 
+            ...updatedScholars[scholarIndex], 
+            message: `Warning: Using ID only. Could not retrieve full author details: ${error instanceof Error ? error.message : String(error)}` 
+          };
+          return updatedScholars;
+        });
+      }
+    }
+
+    if (!openAlexIdToUse) {
+      const errorMessage = 'Cannot import: OpenAlex ID is missing.';
+      setScholars(prevScholars => {
+        const updatedScholars = [...prevScholars];
+        updatedScholars[scholarIndex] = {
+          ...updatedScholars[scholarIndex],
+          status: 'error',
+          message: errorMessage
+        };
+        updateOverallStatus(updatedScholars);
+        return updatedScholars;
+      });
+      console.error(errorMessage, scholarData.csvData.name);
+      return false;
+    }
+
+    if (authorData) {
+      affiliationFromOpenAlex = getAffiliation(authorData);
+      openAlexWorksCount = authorData.works_count || 0;
+      openAlexCitedByCount = authorData.cited_by_count || 0;
+      openAlexHIndex = authorData.summary_stats?.h_index;
+      openAlexI10Index = authorData.summary_stats?.i10_index;
+    }
+    
+    const palantirScholar = {
+      id: -1,
+      name: scholarData.csvData.name,
+      email_domain: '@unknown.edu',
+      affiliation: affiliationFromOpenAlex,
+      scholar_id: openAlexIdToUse,
+      citedby: openAlexCitedByCount,
+      citedby5y: 0,
+      hindex: openAlexHIndex || 0,
+      hindex5y: 0,
+      i10index: openAlexI10Index || 0,
+      i10index5y: 0,
+      total_pub: openAlexWorksCount,
+      interests: authorData?.x_concepts?.slice(0, 5).map(c => c.display_name).join(", ") || "",
+      full_name: authorData?.display_name || scholarData.csvData.name,
+      method: "batch_csv_import",
+      summary_training_start: new Date().toISOString().split('T')[0],
+      created_at: new Date().toISOString(),
+      homepage: ""
+    };
+
+    await saveScholarToPalantir(palantirScholar, authToken);
     
     setScholars(prevScholars => {
       const updatedScholars = [...prevScholars];
       updatedScholars[scholarIndex] = { 
         ...updatedScholars[scholarIndex], 
-        status: 'processing',
-        message: 'Importing...' 
+        status: 'success', 
+        message: 'Successfully imported to Palantir' 
       };
+      updateOverallStatus(updatedScholars);
       return updatedScholars;
     });
-
-    try {
-      const scholarData = scholars[scholarIndex];
-      let openAlexIdToUse: string = '';
-      let affiliationFromOpenAlex: string = '';
-      let openAlexWorksCount: number = 0;
-      let openAlexCitedByCount: number = 0;
-      let openAlexHIndex: number | undefined = undefined;
-      let openAlexI10Index: number | undefined = undefined;
-
-      if (scholarData.selectedMatch) {
-          openAlexIdToUse = extractOpenAlexId(scholarData.selectedMatch.id);
-          affiliationFromOpenAlex = getAffiliation(scholarData.selectedMatch);
-          openAlexWorksCount = scholarData.selectedMatch.works_count || 0;
-          openAlexCitedByCount = scholarData.selectedMatch.cited_by_count || 0;
-          openAlexHIndex = scholarData.selectedMatch.summary_stats?.h_index;
-          openAlexI10Index = scholarData.selectedMatch.summary_stats?.i10_index;
-      } else if (scholarData.csvData.openalex_id) {
-          openAlexIdToUse = extractOpenAlexId(scholarData.csvData.openalex_id);
-      }
-
-      if (!openAlexIdToUse) {
-          const errorMessage = 'Cannot import: OpenAlex ID is missing.';
-          setScholars(prevScholars => {
-              const updatedScholars = [...prevScholars];
-              updatedScholars[scholarIndex] = {
-                  ...updatedScholars[scholarIndex],
-                  status: 'error',
-                  message: errorMessage
-              };
-              updateOverallStatus(updatedScholars);
-              return updatedScholars;
-          });
-          console.error(errorMessage, scholarData.csvData.name);
-          return false;
-      }
-      
-      const palantirScholar = {
-        id: -1,
-        name: scholarData.csvData.name,
-        email_domain: '@unknown.edu',
-        affiliation: affiliationFromOpenAlex,
-        scholar_id: openAlexIdToUse,
-        citedby: openAlexCitedByCount,
-        citedby5y: 0,
-        hindex: openAlexHIndex || 0,
-        hindex5y: 0,
-        i10index: openAlexI10Index || 0,
-        i10index5y: 0,
-        total_pub: openAlexWorksCount,
-        interests: "",
-        full_name: scholarData.csvData.name,
-        method: "batch_csv_import",
-        summary_training_start: new Date().toISOString().split('T')[0],
-        created_at: new Date().toISOString(),
-        homepage: ""
+    
+    return true;
+  } catch (err) {
+    console.error('Error importing scholar:', err);
+    setScholars(prevScholars => {
+      const updatedScholars = [...prevScholars];
+      updatedScholars[scholarIndex] = { 
+        ...updatedScholars[scholarIndex], 
+        status: 'error', 
+        message: `Error: ${err instanceof Error ? err.message : String(err)}` 
       };
-
-      await saveScholarToPalantir(palantirScholar, authToken);
-      
-      setScholars(prevScholars => {
-        const updatedScholars = [...prevScholars];
-        updatedScholars[scholarIndex] = { 
-          ...updatedScholars[scholarIndex], 
-          status: 'success', 
-          message: 'Successfully imported to Palantir' 
-        };
-        updateOverallStatus(updatedScholars);
-        return updatedScholars;
-      });
-      
-      return true;
-    } catch (err) {
-      console.error('Error importing scholar:', err);
-      setScholars(prevScholars => {
-        const updatedScholars = [...prevScholars];
-        updatedScholars[scholarIndex] = { 
-          ...updatedScholars[scholarIndex], 
-          status: 'error', 
-          message: `Error: ${err instanceof Error ? err.message : String(err)}` 
-        };
-        updateOverallStatus(updatedScholars);
-        return updatedScholars;
-      });
-      return false;
-    }
-  };
+      updateOverallStatus(updatedScholars);
+      return updatedScholars;
+    });
+    return false;
+  }
+};
 
   return (
     <div className="space-y-4">
@@ -354,32 +386,64 @@ ScholarMatcher.importScholar = async (
     let openAlexCitedByCount: number = 0;
     let openAlexHIndex: number | undefined = undefined;
     let openAlexI10Index: number | undefined = undefined;
+    let authorData: OpenAlexScholar | null = null;
 
     if (scholarData.selectedMatch) {
-        openAlexIdToUse = extractOpenAlexId(scholarData.selectedMatch.id);
-        affiliationFromOpenAlex = getAffiliation(scholarData.selectedMatch);
-        openAlexWorksCount = scholarData.selectedMatch.works_count || 0;
-        openAlexCitedByCount = scholarData.selectedMatch.cited_by_count || 0;
-        openAlexHIndex = scholarData.selectedMatch.summary_stats?.h_index;
-        openAlexI10Index = scholarData.selectedMatch.summary_stats?.i10_index;
-    } else if (scholarData.csvData.openalex_id) {
+      authorData = scholarData.selectedMatch;
+      openAlexIdToUse = extractOpenAlexId(authorData.id);
+    } 
+    else if (scholarData.csvData.openalex_id) {
+      try {
+        setScholars(prevScholars => {
+          const updatedScholars = [...prevScholars];
+          updatedScholars[scholarIndex] = { 
+            ...updatedScholars[scholarIndex], 
+            message: 'Fetching data from OpenAlex...' 
+          };
+          return updatedScholars;
+        });
+        
         openAlexIdToUse = extractOpenAlexId(scholarData.csvData.openalex_id);
+        authorData = await fetchAuthorById(openAlexIdToUse);
+        
+        if (!authorData) {
+          throw new Error(`No author found with ID: ${openAlexIdToUse}`);
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch author details for ID ${openAlexIdToUse}:`, error);
+        setScholars(prevScholars => {
+          const updatedScholars = [...prevScholars];
+          updatedScholars[scholarIndex] = { 
+            ...updatedScholars[scholarIndex], 
+            message: `Warning: Using ID only. Could not retrieve full author details: ${error instanceof Error ? error.message : String(error)}` 
+          };
+          return updatedScholars;
+        });
+      }
     }
 
     if (!openAlexIdToUse) {
-        const errorMessage = 'Cannot import: OpenAlex ID is missing.';
-        setScholars(prevScholars => {
-            const updatedScholars = [...prevScholars];
-            updatedScholars[scholarIndex] = {
-                ...updatedScholars[scholarIndex],
-                status: 'error',
-                message: errorMessage
-            };
-            updateOverallStatus(updatedScholars);
-            return updatedScholars;
-        });
-        console.error(errorMessage, scholarData.csvData.name);
-        return false;
+      const errorMessage = 'Cannot import: OpenAlex ID is missing.';
+      setScholars(prevScholars => {
+        const updatedScholars = [...prevScholars];
+        updatedScholars[scholarIndex] = {
+          ...updatedScholars[scholarIndex],
+          status: 'error',
+          message: errorMessage
+        };
+        updateOverallStatus(updatedScholars);
+        return updatedScholars;
+      });
+      console.error(errorMessage, scholarData.csvData.name);
+      return false;
+    }
+
+    if (authorData) {
+      affiliationFromOpenAlex = getAffiliation(authorData);
+      openAlexWorksCount = authorData.works_count || 0;
+      openAlexCitedByCount = authorData.cited_by_count || 0;
+      openAlexHIndex = authorData.summary_stats?.h_index;
+      openAlexI10Index = authorData.summary_stats?.i10_index;
     }
     
     const palantirScholar = {
@@ -395,8 +459,8 @@ ScholarMatcher.importScholar = async (
       i10index: openAlexI10Index || 0,
       i10index5y: 0,
       total_pub: openAlexWorksCount,
-      interests: "",
-      full_name: scholarData.csvData.name,
+      interests: authorData?.x_concepts?.slice(0, 5).map(c => c.display_name).join(", ") || "",
+      full_name: authorData?.display_name || scholarData.csvData.name,
       method: "batch_csv_import",
       summary_training_start: new Date().toISOString().split('T')[0],
       created_at: new Date().toISOString(),

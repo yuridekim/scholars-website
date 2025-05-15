@@ -1,30 +1,61 @@
 // components/scholars/batchImportUtils.ts
-import { OpenAlexScholar, ProcessedScholarItem } from './batchImportTypes';
+import axios from 'axios';
+import { OpenAlexScholar, ScholarStatus } from './batchImportTypes';
 
-export const extractOpenAlexId = (idString?: string): string => {
-  if (!idString) return '';
-  if (idString.startsWith('https://openalex.org/')) {
-    return idString.substring('https://openalex.org/'.length);
-  }
-  if (/^[A-Za-z0-9]+$/.test(idString)) {
-      return idString;
-  }
-  return idString.split('/').pop() || '';
+export const extractOpenAlexId = (id: string): string => {
+  if (!id) return '';
+  return id.includes('/') ? id.split('/').pop() || '' : id;
 };
 
 export const getAffiliation = (scholar: OpenAlexScholar): string => {
-  return (scholar.affiliations && scholar.affiliations.length > 0)
-    ? scholar.affiliations.map(aff => aff.institution.display_name).join(', ')
-    : '';
+  if (!scholar.last_known_institution) return '';
+  return scholar.last_known_institution.display_name || '';
 };
 
-export const getStep3StatusText = (status: ProcessedScholarItem['status']) => {
+export const fetchAuthorById = async (openAlexId: string): Promise<OpenAlexScholar | null> => {
+  const cleanId = extractOpenAlexId(openAlexId);
+  
+  if (!cleanId) {
+    throw new Error('Invalid OpenAlex ID');
+  }
+  
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    
+    const response = await axios.get<OpenAlexScholar>(
+      `https://api.openalex.org/authors/${cleanId}`,
+      { signal: controller.signal }
+    );
+    
+    clearTimeout(timeoutId);
+    
+    return response.data;
+  } catch (err) {
+    console.error('Error fetching author by ID:', err);
+    const errorMessage = err instanceof Error 
+      ? (err.name === 'AbortError' 
+          ? 'Request timed out. The OpenAlex API may be slow or unavailable.' 
+          : err.message)
+      : String(err);
+    
+    throw new Error(`Error fetching author from OpenAlex: ${errorMessage}`);
+  }
+};
+
+export const getStep3StatusText = (status: ScholarStatus): string => {
   switch (status) {
-    case 'success': return 'Imported Successfully';
-    case 'error': return 'Import Failed';
-    case 'processing': return 'Processing...';
-    case 'ready': return 'Pending Import (Ready)';
-    case 'needs_confirmation': return 'Skipped (Needs Confirmation)';
-    default: return 'Unknown Status';
+    case 'success':
+      return 'Imported';
+    case 'error':
+      return 'Failed';
+    case 'processing':
+      return 'Processing';
+    case 'ready':
+      return 'Ready to Import';
+    case 'needs_confirmation':
+      return 'Needs ID';
+    default:
+      return 'Unknown';
   }
 };
