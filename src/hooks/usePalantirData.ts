@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { AuthState } from '@/hooks/useFoundryAuth';
-import { Publication, Scholar } from '@/components/palantir/palantirService';
 export interface PalantirDataState<T> {
   data: T[];
   loading: boolean;
@@ -138,12 +137,12 @@ export function useScholarData(
   });
 }
 
-export function usePublicationData(
-  auth: AuthState, 
-  pageSize = 100
-): PalantirDataState<Publication> & { loadMore: () => Promise<void> } {
-  return usePalantirData<Publication>(auth, {
-    objectType: 'Publications',
-    pageSize
-  });
+export interface Scholar {
+  id: number;
+  methods?: string;
+  method?: string;
+  researchMethods?: string;
+  focus?: string;
+  Focus?: string;
+  [key: string]: any;
 }
