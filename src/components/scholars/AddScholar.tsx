@@ -1,19 +1,8 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { Search } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-
-interface ScholarProfile {
-  name: string;
-  affiliation: string;
-  scholarId: string;
-  citedby?: number;
-  citedby5y?: number;
-  hindex?: number;
-  i10index?: number;
-  totalPubs?: number;
-}
+import { saveScholarToPalantir } from '@/components/palantir/palantirScholars';
+import { useFoundryAuth } from '@/hooks/useFoundryAuth';
 
 // Interface for OpenAlex API responses
 interface OpenAlexScholar {
@@ -45,9 +34,7 @@ interface AddScholarProps {
   setSearchQuery: (query: string) => void;
   showManualEntry: boolean;
   setShowManualEntry: (show: boolean) => void;
-  // Optional callback for when a scholar is successfully added
   onScholarAdded?: () => void;
-  accessToken?: string;
 }
 
 const AddScholar: React.FC<AddScholarProps> = ({
@@ -55,9 +42,9 @@ const AddScholar: React.FC<AddScholarProps> = ({
   setSearchQuery,
   showManualEntry,
   setShowManualEntry,
-  onScholarAdded,
-  accessToken
+  onScholarAdded
 }) => {
+  const auth = useFoundryAuth();
   const [scholars, setScholars] = useState<OpenAlexScholar[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,56 +95,106 @@ const AddScholar: React.FC<AddScholarProps> = ({
     return last5Years > 0 ? last5Years : undefined;
   };
 
+  const extractOpenAlexId = (url: string): string => {
+    const urlMatch = url.match(/https:\/\/openalex\.org\/([A-Z0-9]+)/);
+    if (urlMatch && urlMatch[1]) {
+      return urlMatch[1];
+    }
+    
+    return url.split('/').pop() || '';
+  };
+
   const addScholar = async (scholar: OpenAlexScholar) => {
     setAddingScholarId(scholar.id);
     setError(null);
     setSuccessMessage(null);
     
     const citedby5y = calculateCitations5Years(scholar);
-    const scholarID = scholar.id.split('/').pop() || scholar.id;
     
-    const scholarProfile: ScholarProfile = {
+    const openAlexId = extractOpenAlexId(scholar.id);
+    
+    const numericId = -1;
+    
+    const palantirScholar = {
+      id: numericId,
       name: scholar.display_name,
+      email_domain: getEmailDomain(getAffiliation(scholar)),
       affiliation: getAffiliation(scholar),
-      scholarId: scholarID,
-      citedby: scholar.cited_by_count,
-      citedby5y: citedby5y,
-      hindex: scholar.summary_stats?.h_index,
-      i10index: scholar.summary_stats?.i10_index,
-      totalPubs: scholar.works_count
+      scholar_id: openAlexId,
+      citedby: scholar.cited_by_count || 0,
+      citedby5y: citedby5y || 0,
+      hindex: scholar.summary_stats?.h_index || 0,
+      hindex5y: 0, // Default value as OpenAlex doesn't provide this
+      i10index: scholar.summary_stats?.i10_index || 0,
+      i10index5y: 0, // Default value as OpenAlex doesn't provide this
+      total_pub: scholar.works_count || 0,
+      interests: "", // Default interests
+      full_name: scholar.display_name,
+      method: "",
+      summary_training_start: new Date().toISOString().split('T')[0],
+      created_at: new Date().toISOString(),
+      homepage: ""
     };
     
     try {
-      const response = await fetch('/api/scholars', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': accessToken ? `Bearer ${accessToken}` : '',
-        },
-        body: JSON.stringify({ profile: scholarProfile }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to add scholar');
+      if (!auth?.accessToken) {
+        throw new Error("No access token available. Please login first.");
       }
       
-      const data = await response.json();
-      setSuccessMessage(`${scholar.display_name} successfully added to the database!`);
+      await saveScholarToPalantir(palantirScholar, auth.accessToken);
+      
+      setSuccessMessage(`${scholar.display_name} successfully added to Palantir!`);
       
       if (onScholarAdded) {
         onScholarAdded();
       }
     } catch (err) {
-      console.error('Error adding scholar:', err);
+      console.error('Error adding scholar to Palantir:', err);
       setError(`Failed to add scholar: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setAddingScholarId(null);
     }
   };
+  
+  const getEmailDomain = (affiliation: string): string => {
+    if (affiliation.includes('UCLA')) return '@ucla.edu';
+    if (affiliation.includes('Stanford')) return '@stanford.edu';
+    if (affiliation.includes('MIT')) return '@mit.edu';
+    if (affiliation.includes('Berkeley') || affiliation.includes('UC Berkeley')) return '@berkeley.edu';
+    if (affiliation.includes('Harvard')) return '@harvard.edu';
+    
+    // Extract the first part of the affiliation and make a generic domain
+    const firstPart = affiliation.split(',')[0].trim();
+    if (firstPart) {
+      const simplifiedName = firstPart.toLowerCase()
+        .replace(/university of /gi, '')
+        .replace(/[^a-z0-9]/gi, '');
+      
+      return `@${simplifiedName}.edu`;
+    }
+    
+    return '@unknown.edu';
+  };
 
   return (
     <>
+<div className="mb-4">
+  <h3 className="font-medium mb-2">Authentication Status</h3>
+  <div className="p-2 bg-gray-100 rounded">
+    {auth.accessToken && auth.isAuthenticated ? (
+      <div className="text-green-600">
+        ✓ Authenticated with Foundry
+      </div>
+    ) : (
+      <div className="text-red-600">
+        {auth.accessToken && auth.expiresAt && Date.now() >= auth.expiresAt 
+          ? "✗ Session expired. Please login again." 
+          : "✗ Not authenticated. Please login first."}
+      </div>
+    )}
+  </div>
+      </div>
+
       <div className="mb-6">
         <input
           type="text"
@@ -215,6 +252,7 @@ const AddScholar: React.FC<AddScholarProps> = ({
                   <div>
                     <p className="font-medium">{scholar.display_name}</p>
                     <p className="text-sm text-gray-500">{getAffiliation(scholar)}</p>
+                    <p className="text-xs text-gray-400">ID: {extractOpenAlexId(scholar.id)}</p>
                     <p className="text-sm text-gray-500 mt-1">
                       Works: {scholar.works_count} | 
                       Citations: {scholar.cited_by_count} | 
@@ -227,10 +265,10 @@ const AddScholar: React.FC<AddScholarProps> = ({
                   </div>
                   <button
                     onClick={() => addScholar(scholar)}
-                    disabled={addingScholarId === scholar.id}
+                    disabled={addingScholarId === scholar.id || !auth?.accessToken}
                     className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:bg-green-300 disabled:cursor-not-allowed transition-colors ml-4 whitespace-nowrap"
                   >
-                    {addingScholarId === scholar.id ? 'Adding...' : 'Add to Database'}
+                    {addingScholarId === scholar.id ? 'Adding...' : 'Add to Palantir'}
                   </button>
                 </div>
               </div>
@@ -238,6 +276,7 @@ const AddScholar: React.FC<AddScholarProps> = ({
           </div>
         </div>
       )}
+      
     </>
   );
 };

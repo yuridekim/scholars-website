@@ -16,6 +16,7 @@ interface UseScholarsResult {
     uniqueAffiliations: string[];
     uniqueEmailDomains: string[];
     stats: DashboardStats;
+    refreshScholars: () => Promise<void>;
 }
 
 export const useScholars = (): UseScholarsResult => {
@@ -85,60 +86,85 @@ export const useScholars = (): UseScholarsResult => {
       });
     };
 
-    useEffect(() => {
-        const fetchScholars = async () => {
-            try {
-                if (!auth.accessToken) {
-                    // If no token is available yet, wait
-                    return;
-                }
-
-                const response = await fetch('/api/scholars', {
-                    headers: {
-                        'Authorization': `Bearer ${auth.accessToken}`
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Error ${response.status}: ${response.statusText}`);
-                }
-
-                const data = await response.json();
-                
-                if (!Array.isArray(data)) {
-                    console.error('Received non-array data:', data);
-                    setError('Invalid data format received');
-                    setScholars([]);
-                    setFilteredScholars([]);
-                    return;
-                }
-
-                setScholars(data);
-                setFilteredScholars(data);
-                
-                const affiliations = Array.from(
-                    new Set(data.map(s => s.affiliation).filter((aff): aff is string => !!aff))
-                ).sort();
-                
-                const domains = Array.from(
-                    new Set(data.map(s => s.emailDomain).filter((domain): domain is string => !!domain))
-                ).sort();
-
-                setUniqueAffiliations(affiliations);
-                setUniqueEmailDomains(domains);
-                calculateStats(data);
-            } catch (err) {
-                console.error('Error fetching scholars:', err);
-                setError(err instanceof Error ? err.message : 'Failed to load scholars');
-            } finally {
+    // Create fetchScholars function that can be called from outside
+    const fetchScholars = async () => {
+        try {
+            // Check if session is expired before making the API call
+            if (!auth.accessToken || (auth.expiresAt && Date.now() >= auth.expiresAt)) {
+                // Don't set a specific error message, just clear data and stop loading
+                setScholars([]);
+                setFilteredScholars([]);
                 setLoading(false);
+                return;
             }
-        };
 
-        fetchScholars();
-    }, [auth.accessToken]); // Re-fetch when token changes
+            setLoading(true);
+            
+            const response = await fetch('/api/scholars', {
+                headers: {
+                    'Authorization': `Bearer ${auth.accessToken}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            
+            if (!Array.isArray(data)) {
+                console.error('Received non-array data:', data);
+                setError('Invalid data format received');
+                setScholars([]);
+                setFilteredScholars([]);
+                return;
+            }
+
+            setScholars(data);
+            setFilteredScholars(data);
+            
+            const affiliations = Array.from(
+                new Set(data.map(s => s.affiliation).filter((aff): aff is string => !!aff))
+            ).sort();
+            
+            const domains = Array.from(
+                new Set(data.map(s => s.emailDomain).filter((domain): domain is string => !!domain))
+            ).sort();
+
+            setUniqueAffiliations(affiliations);
+            setUniqueEmailDomains(domains);
+            calculateStats(data);
+            setError(null);
+        } catch (err) {
+            console.error('Error fetching scholars:', err);
+            setError(err instanceof Error ? err.message : 'Failed to load scholars');
+            setScholars([]);
+            setFilteredScholars([]);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
+        // Only fetch if there's a valid token and it's not expired
+        if (auth.accessToken && (!auth.expiresAt || Date.now() < auth.expiresAt)) {
+            fetchScholars();
+        } else if (auth.accessToken && auth.expiresAt && Date.now() >= auth.expiresAt) {
+            // Don't set specific error message, just clear data and stop loading
+            setScholars([]);
+            setFilteredScholars([]);
+            setLoading(false);
+        } else {
+            // When there's no token yet
+            setLoading(false);
+        }
+    }, [auth.accessToken, auth.expiresAt]); // Re-fetch when token or expiration changes
+
+    useEffect(() => {
+        if (scholars.length === 0) {
+            return;
+        }
+        
         const filtered = scholars.filter(scholar => {
             const matchesSearch = scholar.name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false;
             const matchesAffiliation = !filters.affiliation || scholar.affiliation === filters.affiliation;
@@ -177,5 +203,6 @@ export const useScholars = (): UseScholarsResult => {
         uniqueAffiliations,
         uniqueEmailDomains,
         stats,
+        refreshScholars: fetchScholars 
     };
 };

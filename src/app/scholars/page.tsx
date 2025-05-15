@@ -4,10 +4,12 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ManualScholarEntry, ScholarStats, ScholarList, AddScholar, ScholarFilters } from '@/components/scholars';
 import { useScholars } from '@/hooks/useScholars';
-import { Download } from 'lucide-react';
+import { useFoundryAuth } from '@/hooks/useFoundryAuth';
+import { Download, AlertTriangle } from 'lucide-react';
 
 export default function ScholarsPage() {
     const router = useRouter();
+    const auth = useFoundryAuth();
     const {
         scholars,
         filteredScholars,
@@ -20,7 +22,7 @@ export default function ScholarsPage() {
         uniqueAffiliations,
         uniqueEmailDomains,
         stats,
-        // No refreshScholars function
+        refreshScholars
     } = useScholars();
 
     const [searchLoading, setSearchLoading] = useState(false);
@@ -35,11 +37,15 @@ export default function ScholarsPage() {
 
     const [filterShowState, setFilterShowState] = useState(false);
 
+    const isSessionInvalid = !auth.accessToken || (auth.expiresAt && Date.now() >= auth.expiresAt);
+
     const handleExport = () => {
+        if (isSessionInvalid || filteredScholars.length === 0) return;
+        
         const csvContent = [
             ['Name', 'Affiliation', 'Citations', 'H-Index', 'Email Domain'].join(','),
             ...filteredScholars.map(scholar => [
-                `"${scholar.name}"`,
+                `"${scholar.name || ''}"`,
                 `"${scholar.affiliation || ''}"`,
                 scholar.citedby || 0,
                 scholar.hindex || 0,
@@ -55,6 +61,10 @@ export default function ScholarsPage() {
     };
 
     const handleManualSubmit = async (manualEntry: any) => {
+        if (isSessionInvalid) {
+            return;
+        }
+        
         setSearchLoading(true);
 
         try {
@@ -62,6 +72,7 @@ export default function ScholarsPage() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${auth.accessToken}`
                 },
                 body: JSON.stringify({
                     profile: {
@@ -76,8 +87,9 @@ export default function ScholarsPage() {
                 throw new Error(errorData.error || 'Failed to add scholar');
             }
 
-            const data = await response.json();
-            router.refresh();
+            await response.json();
+            
+            refreshScholars();
             
             setShowManualEntry(false);
             setManualEntry({
@@ -118,49 +130,71 @@ export default function ScholarsPage() {
                     >
                         Scholar Performance Tracker
                     </h1>
-                    <div className="flex gap-4">
-                        <button
-                            onClick={handleExport}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                        >
-                            <Download size={20} />
-                            Export Data ({filteredScholars.length} scholars)
-                        </button>
-                    </div>
+                    {!isSessionInvalid && filteredScholars.length > 0 && (
+                        <div className="flex gap-4">
+                            <button
+                                onClick={handleExport}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                            >
+                                <Download size={20} />
+                                Export Data ({filteredScholars.length} scholars)
+                            </button>
+                        </div>
+                    )}
                 </div>
-                <ScholarFilters
-                    filters={filters}
-                    setFilters={setFilters}
-                    uniqueAffiliations={uniqueAffiliations}
-                    uniqueEmailDomains={uniqueEmailDomains}
-                    showFilters={filterShowState}
-                    setShowFilters={setFilterShowState}
-                />
 
-                <ScholarStats stats={stats} />
+                {isSessionInvalid && (
+                    <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 mb-6">
+                        <div className="flex items-center">
+                            <AlertTriangle className="h-6 w-6 text-yellow-500 mr-2" />
+                            <p className="font-medium text-yellow-700">
+                                {auth.expiresAt && Date.now() >= auth.expiresAt 
+                                    ? "Session expired. Please login again to access scholar data." 
+                                    : "Authentication required. Please login to view and manage scholars."}
+                            </p>
+                        </div>
+                    </div>
+                )}
 
-                {/* OpenAlex Scholar Search */}
+                {/* Always show AddScholar component because it handles its own authentication state */}
                 <AddScholar
                     searchQuery={searchQuery}
                     setSearchQuery={setSearchQuery}
                     showManualEntry={showManualEntry}
                     setShowManualEntry={setShowManualEntry}
                     onScholarAdded={() => {
-                        router.refresh();
+                        if (!isSessionInvalid) {
+                            refreshScholars();
+                        }
                     }}
                 />
 
-                <ManualScholarEntry
-                    showManualEntry={showManualEntry}
-                    setShowManualEntry={setShowManualEntry}
-                    searchLoading={searchLoading}
-                    handleManualSubmit={handleManualSubmit}
-                    error={error}
-                    manualEntry={manualEntry}
-                    setManualEntry={setManualEntry}
-                />
+                {!isSessionInvalid && (
+                    <>
+                        <ScholarFilters
+                            filters={filters}
+                            setFilters={setFilters}
+                            uniqueAffiliations={uniqueAffiliations}
+                            uniqueEmailDomains={uniqueEmailDomains}
+                            showFilters={filterShowState}
+                            setShowFilters={setFilterShowState}
+                        />
 
-                <ScholarList scholars={filteredScholars} />
+                        <ScholarStats stats={stats} />
+
+                        <ManualScholarEntry
+                            showManualEntry={showManualEntry}
+                            setShowManualEntry={setShowManualEntry}
+                            searchLoading={searchLoading}
+                            handleManualSubmit={handleManualSubmit}
+                            error={error}
+                            manualEntry={manualEntry}
+                            setManualEntry={setManualEntry}
+                        />
+
+                        <ScholarList scholars={filteredScholars} />
+                    </>
+                )}
             </div>
         </div>
     );
