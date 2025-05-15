@@ -58,3 +58,6 @@ next-env.d.ts
 
 # csv files
 prisma/data
+
+# batch import test file
+example.csv
