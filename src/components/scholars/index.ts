@@ -3,3 +3,4 @@ export { default as ScholarStats } from './ScholarStats';
 export { default as ScholarList } from './ScholarList';
 export { default as AddScholar } from './AddScholar';
 export { default as ScholarFilters } from './ScholarFilters';
+export { default as BatchScholarImport } from './BatchScholarImport';

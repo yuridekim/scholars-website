@@ -5,12 +5,11 @@ import { saveScholarToPalantir } from '@/components/palantir/palantirScholars';
 import { useFoundryAuth } from '@/hooks/useFoundryAuth';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 
-// Interface for OpenAlex API responses
 interface OpenAlexScholar {
   id: string;
   display_name: string;
-  works_count: number;      
-  cited_by_count: number;   
+  works_count: number;
+  cited_by_count: number;
   works_api_url: string;
   summary_stats?: {
     h_index?: number;
@@ -52,7 +51,7 @@ const AddScholar: React.FC<AddScholarProps> = ({
   const [addingScholarId, setAddingScholarId] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [addedScholars, setAddedScholars] = useState<Set<string>>(new Set());
-  
+
   useEffect(() => {
     if (successMessage) {
       const timer = setTimeout(() => {
@@ -97,12 +96,12 @@ const AddScholar: React.FC<AddScholarProps> = ({
     if (!scholar.counts_by_year || scholar.counts_by_year.length === 0) {
       return undefined;
     }
-    
+
     const currentYear = new Date().getFullYear();
     const last5Years = scholar.counts_by_year
       .filter(count => count.year >= currentYear - 5)
       .reduce((sum, count) => sum + count.cited_by_count, 0);
-      
+
     return last5Years > 0 ? last5Years : undefined;
   };
 
@@ -111,20 +110,20 @@ const AddScholar: React.FC<AddScholarProps> = ({
     if (urlMatch && urlMatch[1]) {
       return urlMatch[1];
     }
-    
+
     return url.split('/').pop() || '';
   };
 
   const addScholar = async (scholar: OpenAlexScholar) => {
     setAddingScholarId(scholar.id);
     setError(null);
-    
+
     const citedby5y = calculateCitations5Years(scholar);
-    
+
     const openAlexId = extractOpenAlexId(scholar.id);
-    
+
     const numericId = -1;
-    
+
     const palantirScholar = {
       id: numericId,
       name: scholar.display_name,
@@ -134,29 +133,29 @@ const AddScholar: React.FC<AddScholarProps> = ({
       citedby: scholar.cited_by_count || 0,
       citedby5y: citedby5y || 0,
       hindex: scholar.summary_stats?.h_index || 0,
-      hindex5y: 0, // Default value as OpenAlex doesn't provide this
+      hindex5y: 0,
       i10index: scholar.summary_stats?.i10_index || 0,
-      i10index5y: 0, // Default value as OpenAlex doesn't provide this
+      i10index5y: 0,
       total_pub: scholar.works_count || 0,
-      interests: "", // Default interests
+      interests: "",
       full_name: scholar.display_name,
       method: "",
       summary_training_start: new Date().toISOString().split('T')[0],
       created_at: new Date().toISOString(),
       homepage: ""
     };
-    
+
     try {
       if (!auth?.accessToken) {
         throw new Error("No access token available. Please login first.");
       }
-      
+
       await saveScholarToPalantir(palantirScholar, auth.accessToken);
-      
+
       setAddedScholars(prev => new Set(prev).add(scholar.id));
-      
+
       setSuccessMessage(`${scholar.display_name} successfully added to Palantir! Click "Refresh" to update the list.`);
-      
+
     } catch (err) {
       console.error('Error adding scholar to Palantir:', err);
       setError(`Failed to add scholar: ${err instanceof Error ? err.message : String(err)}`);
@@ -164,24 +163,23 @@ const AddScholar: React.FC<AddScholarProps> = ({
       setAddingScholarId(null);
     }
   };
-  
+
   const getEmailDomain = (affiliation: string): string => {
     if (affiliation.includes('UCLA')) return '@ucla.edu';
     if (affiliation.includes('Stanford')) return '@stanford.edu';
     if (affiliation.includes('MIT')) return '@mit.edu';
     if (affiliation.includes('Berkeley') || affiliation.includes('UC Berkeley')) return '@berkeley.edu';
     if (affiliation.includes('Harvard')) return '@harvard.edu';
-    
-    // Extract the first part of the affiliation and make a generic domain
+
     const firstPart = affiliation.split(',')[0].trim();
     if (firstPart) {
       const simplifiedName = firstPart.toLowerCase()
         .replace(/university of /gi, '')
         .replace(/[^a-z0-9]/gi, '');
-      
+
       return `@${simplifiedName}.edu`;
     }
-    
+
     return '@unknown.edu';
   };
 
@@ -196,8 +194,8 @@ const AddScholar: React.FC<AddScholarProps> = ({
             </div>
           ) : (
             <div className="text-red-600">
-              {auth.accessToken && auth.expiresAt && Date.now() >= auth.expiresAt 
-                ? "✗ Session expired. Please login again." 
+              {auth.accessToken && auth.expiresAt && Date.now() >= auth.expiresAt
+                ? "✗ Session expired. Please login again."
                 : "✗ Not authenticated. Please login first."}
             </div>
           )}
@@ -220,7 +218,7 @@ const AddScholar: React.FC<AddScholarProps> = ({
           <p>{error}</p>
         </div>
       )}
-      
+
       {successMessage && (
         <div className="flex items-center bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4 animate-fadeIn">
           <CheckCircle2 className="h-5 w-5 mr-2 text-green-500" />
@@ -261,10 +259,10 @@ const AddScholar: React.FC<AddScholarProps> = ({
           <div className="space-y-4">
             {scholars.map((scholar) => {
               const isAdded = addedScholars.has(scholar.id);
-              
+
               return (
-                <div 
-                  key={scholar.id} 
+                <div
+                  key={scholar.id}
                   className={`p-4 border rounded shadow-sm ${isAdded ? 'bg-green-50 border-green-200' : 'bg-white hover:bg-gray-50'}`}
                 >
                   <div className="flex justify-between items-start">
@@ -280,8 +278,8 @@ const AddScholar: React.FC<AddScholarProps> = ({
                       <p className="text-sm text-gray-500">{getAffiliation(scholar)}</p>
                       <p className="text-xs text-gray-400">ID: {extractOpenAlexId(scholar.id)}</p>
                       <p className="text-sm text-gray-500 mt-1">
-                        Works: {scholar.works_count} | 
-                        Citations: {scholar.cited_by_count} | 
+                        Works: {scholar.works_count} |
+                        Citations: {scholar.cited_by_count} |
                         h-index: {scholar.summary_stats?.h_index || 'N/A'} |
                         i10-index: {scholar.summary_stats?.i10_index || 'N/A'}
                         {calculateCitations5Years(scholar) && (
@@ -293,15 +291,15 @@ const AddScholar: React.FC<AddScholarProps> = ({
                       onClick={() => addScholar(scholar)}
                       disabled={addingScholarId === scholar.id || !auth?.accessToken || isAdded}
                       className={`px-4 py-2 rounded transition-colors ml-4 whitespace-nowrap ${
-                        isAdded 
+                        isAdded
                           ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
                           : 'bg-green-500 text-white hover:bg-green-600 disabled:bg-green-300 disabled:cursor-not-allowed'
                       }`}
                     >
-                      {addingScholarId === scholar.id 
-                        ? 'Adding...' 
-                        : isAdded 
-                          ? 'Added ✓' 
+                      {addingScholarId === scholar.id
+                        ? 'Adding...'
+                        : isAdded
+                          ? 'Added ✓'
                           : 'Add to Palantir'
                       }
                     </button>
@@ -312,7 +310,7 @@ const AddScholar: React.FC<AddScholarProps> = ({
           </div>
         </div>
       )}
-      
+
     </>
   );
 };

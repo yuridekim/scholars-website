@@ -1,8 +1,9 @@
+// ScholarsPage.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ManualScholarEntry, ScholarStats, ScholarList, AddScholar, ScholarFilters } from '@/components/scholars';
+import { ManualScholarEntry, ScholarStats, ScholarList, AddScholar, ScholarFilters, BatchScholarImport } from '@/components/scholars';
 import { useScholars } from '@/hooks/useScholars';
 import { useFoundryAuth } from '@/hooks/useFoundryAuth';
 import AuthComponent from '@/components/auth/AuthComponent';
@@ -39,11 +40,13 @@ export default function ScholarsPage() {
     const [filterShowState, setFilterShowState] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [refreshTooltip, setRefreshTooltip] = useState(false);
+    const [importMode, setImportMode] = useState<'individual' | 'batch'>('individual');
+
 
     const isSessionInvalid = !auth.accessToken || (auth.expiresAt && Date.now() >= auth.expiresAt);
 
     const handleRefresh = async () => {
-        if (isSessionInvalid) return;
+        if (isSessionInvalid && !auth.isAuthenticated) return;
         
         setIsRefreshing(true);
         await refreshScholars();
@@ -77,7 +80,7 @@ export default function ScholarsPage() {
         link.click();
     };
 
-    const handleManualSubmit = async (manualEntry: any) => {
+    const handleManualSubmit = async (manualEntryData: any) => {
         if (isSessionInvalid) {
             return;
         }
@@ -93,7 +96,7 @@ export default function ScholarsPage() {
                 },
                 body: JSON.stringify({
                     profile: {
-                        ...manualEntry,
+                        ...manualEntryData,
                         scholarId: `manual_${Date.now()}`
                     }
                 }),
@@ -127,7 +130,7 @@ export default function ScholarsPage() {
         router.push('/');
     };
 
-    if (loading) {
+    if (loading && !isRefreshing) {
         return (
             <div className="min-h-screen bg-gray-50 p-6">
                 <div className="flex items-center justify-center mt-20">
@@ -147,7 +150,7 @@ export default function ScholarsPage() {
                     >
                         Scholar Performance Tracker
                     </h1>
-                    {!isSessionInvalid && (
+                    {!isSessionInvalid && auth.isAuthenticated && (
                         <div className="flex gap-4 items-center">
                             <div className="relative">
                                 <button
@@ -180,7 +183,7 @@ export default function ScholarsPage() {
                     )}
                 </div>
 
-                {isSessionInvalid && (
+                {isSessionInvalid && !auth.isAuthenticated && (
                     <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 mb-6">
                         <div className="flex items-center">
                             <AlertTriangle className="h-6 w-6 text-yellow-500 mr-2" />
@@ -193,13 +196,53 @@ export default function ScholarsPage() {
                     </div>
                 )}
 
-                <AddScholar
+                <div className="mb-6 bg-white rounded-lg shadow p-4">
+                  <h3 className="text-lg font-medium text-gray-700 mb-3">Scholar Import</h3>
+                  
+                  <div className="flex space-x-4 mb-2">
+                    <button
+                      onClick={() => setImportMode('individual')}
+                      className={`flex-1 py-3 px-4 rounded-lg transition-colors ${
+                        importMode === 'individual' 
+                          ? 'bg-blue-100 text-blue-700 font-medium' 
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      Individual Import
+                    </button>
+                    
+                    <button
+                      onClick={() => setImportMode('batch')}
+                      className={`flex-1 py-3 px-4 rounded-lg transition-colors ${
+                        importMode === 'batch' 
+                          ? 'bg-blue-100 text-blue-700 font-medium' 
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      Batch CSV Import
+                    </button>
+                  </div>
+                  
+                  <p className="text-sm text-gray-500">
+                    {importMode === 'individual' 
+                      ? 'Search for and add scholars one at a time with detailed information.' 
+                      : 'Upload a CSV file to import multiple scholars at once.'}
+                  </p>
+                </div>
+
+                {importMode === 'individual' ? (
+                  <AddScholar
                     searchQuery={searchQuery}
                     setSearchQuery={setSearchQuery}
                     showManualEntry={showManualEntry}
                     setShowManualEntry={setShowManualEntry}
                     onScholarAdded={handleRefresh}
-                />
+                  />
+                ) : (
+                  <BatchScholarImport 
+                    onScholarAdded={handleRefresh}
+                  />
+                )}
 
                 <AuthComponent>
                     <>
