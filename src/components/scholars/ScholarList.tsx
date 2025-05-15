@@ -27,7 +27,7 @@ const ScholarList: React.FC<ScholarListProps> = ({ scholars }) => {
                 <tbody className="bg-white divide-y divide-gray-200">
                     {scholars.map((scholar) => (
                         <tr
-                            key={scholar.id}
+                            key={scholar.scholarId}
                             onClick={() => handleScholarClick(scholar.scholarId)}
                             className="hover:bg-gray-50 cursor-pointer transition-colors"
                         >
