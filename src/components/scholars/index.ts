@@ -4,3 +4,5 @@ export { default as ScholarList } from './ScholarList';
 export { default as AddScholar } from './AddScholar';
 export { default as ScholarFilters } from './ScholarFilters';
 export { default as BatchScholarImport } from './BatchScholarImport';
+export { default as ScholarImportResults } from './ScholarImportResults';
+export { default as ScholarMatcher } from './ScholarMatcher';
