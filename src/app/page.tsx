@@ -43,32 +43,39 @@ export default function Home() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/scholars').then(res => res.json()) as Promise<Scholar[]>,
-      fetch('/api/topics').then(res => res.json()) as Promise<TopicInfo[]>
+      fetch('/api/scholars').then(res => res.json()),
+      fetch('/api/topics').then(res => res.json())
     ])
-      .then(([scholarData, topicData]) => {
+      .then(([scholarResponse, topicResponse]) => {
+        const scholarData = Array.isArray(scholarResponse) ? scholarResponse : 
+                          (scholarResponse.data ? scholarResponse.data : []);
+        const topicData = Array.isArray(topicResponse) ? topicResponse : 
+                         (topicResponse.data ? topicResponse.data : []);
+        
         setScholars(scholarData);
         setFilteredScholars(scholarData);
         setTopics(topicData);
 
-        const affiliations = Array.from(
-          new Set(
-            scholarData
-              .map(s => s.affiliation)
-              .filter((aff): aff is string => !!aff)
-          )
-        ).sort() as string[];
+        if (Array.isArray(scholarData)) {
+          const affiliations = Array.from(
+            new Set(
+              scholarData
+                .map(s => s.affiliation)
+                .filter((aff): aff is string => !!aff)
+            )
+          ).sort();
 
-        const domains = Array.from(
-          new Set(
-            scholarData
-              .map(s => s.emailDomain)
-              .filter((domain): domain is string => !!domain)
-          )
-        ).sort() as string[];
+          const domains = Array.from(
+            new Set(
+              scholarData
+                .map(s => s.emailDomain)
+                .filter((domain): domain is string => !!domain)
+            )
+          ).sort();
 
-        setUniqueAffiliations(affiliations);
-        setUniqueEmailDomains(domains);
+          setUniqueAffiliations(affiliations);
+          setUniqueEmailDomains(domains);
+        }
         setLoading(false);
       })
       .catch((error) => {
@@ -248,7 +255,13 @@ export default function Home() {
 
         {/* Topic Visualization */}
         <div className="mb-8">
-          <DualVisualization topicData={topics} />;
+          {Array.isArray(topics) && topics.length > 0 ? (
+            <DualVisualization topicData={topics} />
+          ) : (
+            <div className="bg-white p-4 rounded-lg shadow text-center">
+              <p>No topic data available for visualization.</p>
+            </div>
+          )}
         </div>
 
         {/* Embedded HTML */}
@@ -258,6 +271,16 @@ export default function Home() {
             className="w-full h-[600px] border-0"
             title="Fancy Latent Space"
           />
+        </div>
+
+        <div className="bg-white p-4 rounded-lg shadow mb-8">
+          <h2 className="text-lg font-semibold mb-2">Debug Information</h2>
+          <p>
+            Scholars Array: {Array.isArray(scholars) ? 'Yes' : 'No'} (Length: {Array.isArray(scholars) ? scholars.length : 'N/A'})
+          </p>
+          <p>
+            Topics Array: {Array.isArray(topics) ? 'Yes' : 'No'} (Length: {Array.isArray(topics) ? topics.length : 'N/A'})
+          </p>
         </div>
       </div>
     </div>
