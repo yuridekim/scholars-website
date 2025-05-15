@@ -1,6 +1,6 @@
 // client/src/app/api/scholars/route.ts
 import { NextResponse } from 'next/server';
-import { fetchScholarsFromPalantir} from '@/components/palantir/palantirScholars';
+import { fetchScholarsFromPalantir, saveScholarToPalantir } from '@/components/palantir/palantirScholars';
 export async function GET(request: Request) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -39,6 +39,52 @@ export async function GET(request: Request) {
     console.error('Error fetching scholars:', error);
     return NextResponse.json(
       { error: 'Error fetching scholars' }, 
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    // Check authorization
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const accessToken = authHeader.split(' ')[1];
+    
+    const { profile } = await request.json();
+    
+    const palantirScholar = {
+      name: profile.name,
+      email_domain: profile.emailDomain || '',
+      affiliation: profile.affiliation || '',
+      scholarId: profile.scholarId,
+      citedby: profile.citedby || 0,
+      citedby5y: profile.citedby5y || 0,
+      hindex: profile.hindex || 0,
+      hindex5y: profile.hindex5y || 0,
+      i10index: profile.i10index || 0,
+      i10index5y: profile.i10index5y || 0,
+      total_pub: profile.totalPubs || 0,
+      interests: profile.interests || '',
+      homepage: profile.homepage || '',
+      full_name: profile.fullName || profile.name,
+      method: 'OpenAlex',
+      created_at: new Date().toISOString()
+    };
+    
+    await saveScholarToPalantir(palantirScholar, accessToken);
+    
+    return NextResponse.json({ 
+      success: true, 
+      message: `Scholar ${profile.name} was successfully added to the database` 
+    });
+  } catch (error) {
+    console.error('Error adding scholar:', error);
+    return NextResponse.json(
+      { error: `Error adding scholar: ${error instanceof Error ? error.message : String(error)}` }, 
       { status: 500 }
     );
   }

@@ -47,6 +47,7 @@ interface AddScholarProps {
   setShowManualEntry: (show: boolean) => void;
   // Optional callback for when a scholar is successfully added
   onScholarAdded?: () => void;
+  accessToken?: string;
 }
 
 const AddScholar: React.FC<AddScholarProps> = ({
@@ -54,7 +55,8 @@ const AddScholar: React.FC<AddScholarProps> = ({
   setSearchQuery,
   showManualEntry,
   setShowManualEntry,
-  onScholarAdded
+  onScholarAdded,
+  accessToken
 }) => {
   const [scholars, setScholars] = useState<OpenAlexScholar[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -130,6 +132,7 @@ const AddScholar: React.FC<AddScholarProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': accessToken ? `Bearer ${accessToken}` : '',
         },
         body: JSON.stringify({ profile: scholarProfile }),
       });

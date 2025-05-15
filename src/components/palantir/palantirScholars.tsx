@@ -1,4 +1,4 @@
-// src/components/palantir/scholars.ts
+// src/components/palantir/palantirScholars.ts
 import { PalantirService } from '@/components/palantir/commonApi';
 import { PalantirScholar, PalantirGooglePub, FetchOptions, FetchResponse, PalantirPubMed } from '@/components/palantir/types';
 
@@ -6,6 +6,17 @@ const scholarService = new PalantirService<PalantirScholar>('ScholarProfiles', '
 
 export const saveScholarsToPalantir = (scholars: PalantirScholar[], accessToken: string) => 
   scholarService.saveEntitiesToPalantir(scholars, accessToken);
+
+export const saveScholarToPalantir = async (scholar: Partial<PalantirScholar>, accessToken: string): Promise<void> => {
+  try {
+    await scholarService.saveEntitiesToPalantir([scholar as PalantirScholar], accessToken);
+    console.log(`Scholar ${scholar.name} successfully saved to Palantir`);
+    return Promise.resolve();
+  } catch (error) {
+    console.error('Error saving scholar to Palantir:', error);
+    return Promise.reject(error);
+  }
+};
 
 export const updateScholarInPalantir = (scholarId: number, data: Partial<PalantirScholar>, accessToken: string) =>
   scholarService.updateEntityInPalantir(scholarId, data, accessToken);
@@ -45,4 +56,3 @@ export const fetchScholarPubMed = (
     options
   );
 };
-
