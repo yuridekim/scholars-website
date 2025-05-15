@@ -44,6 +44,12 @@ export interface OpenAlexScholar {
   last_known_institution?: OpenAlexInstitution;
   x_concepts?: OpenAlexConcept[];
   counts_by_year?: Array<{ year: number; works_count: number; cited_by_count: number }>;
+  affiliations?: Array<{
+  institution: {
+    display_name: string;
+  };
+  years?: number[];
+  }>;
 }
 
 export type ScholarStatus = 'needs_confirmation' | 'ready' | 'processing' | 'success' | 'error';

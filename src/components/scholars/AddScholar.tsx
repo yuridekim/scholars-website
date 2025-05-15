@@ -27,6 +27,12 @@ interface OpenAlexScholar {
     };
     years?: number[];
   }>;
+  x_concepts?: Array<{
+    id: string;
+    display_name: string;
+    level: number;
+    score: number;
+  }>;
 }
 
 interface AddScholarProps {
@@ -124,10 +130,14 @@ const AddScholar: React.FC<AddScholarProps> = ({
 
     const numericId = -1;
 
+    const interests = scholar.x_concepts 
+      ? scholar.x_concepts.slice(0, 5).map(c => c.display_name).join(", ") 
+      : "";
+
     const palantirScholar = {
       id: numericId,
       name: scholar.display_name,
-      email_domain: getEmailDomain(getAffiliation(scholar)),
+      email_domain: "",
       affiliation: getAffiliation(scholar),
       scholar_id: openAlexId,
       citedby: scholar.cited_by_count || 0,
@@ -137,10 +147,9 @@ const AddScholar: React.FC<AddScholarProps> = ({
       i10index: scholar.summary_stats?.i10_index || 0,
       i10index5y: 0,
       total_pub: scholar.works_count || 0,
-      interests: "",
+      interests: interests,
       full_name: scholar.display_name,
-      method: "",
-      summary_training_start: new Date().toISOString().split('T')[0],
+      method: "individual_add",
       created_at: new Date().toISOString(),
       homepage: ""
     };
@@ -156,6 +165,10 @@ const AddScholar: React.FC<AddScholarProps> = ({
 
       setSuccessMessage(`${scholar.display_name} successfully added to Palantir! Click "Refresh" to update the list.`);
 
+      if (onScholarAdded) {
+        onScholarAdded();
+      }
+
     } catch (err) {
       console.error('Error adding scholar to Palantir:', err);
       setError(`Failed to add scholar: ${err instanceof Error ? err.message : String(err)}`);
@@ -164,24 +177,6 @@ const AddScholar: React.FC<AddScholarProps> = ({
     }
   };
 
-  const getEmailDomain = (affiliation: string): string => {
-    if (affiliation.includes('UCLA')) return '@ucla.edu';
-    if (affiliation.includes('Stanford')) return '@stanford.edu';
-    if (affiliation.includes('MIT')) return '@mit.edu';
-    if (affiliation.includes('Berkeley') || affiliation.includes('UC Berkeley')) return '@berkeley.edu';
-    if (affiliation.includes('Harvard')) return '@harvard.edu';
-
-    const firstPart = affiliation.split(',')[0].trim();
-    if (firstPart) {
-      const simplifiedName = firstPart.toLowerCase()
-        .replace(/university of /gi, '')
-        .replace(/[^a-z0-9]/gi, '');
-
-      return `@${simplifiedName}.edu`;
-    }
-
-    return '@unknown.edu';
-  };
 
   return (
     <>
@@ -259,6 +254,9 @@ const AddScholar: React.FC<AddScholarProps> = ({
           <div className="space-y-4">
             {scholars.map((scholar) => {
               const isAdded = addedScholars.has(scholar.id);
+              const researchInterests = scholar.x_concepts 
+                ? scholar.x_concepts.slice(0, 5).map(c => c.display_name).join(", ") 
+                : "No research interests available";
 
               return (
                 <div
@@ -285,6 +283,9 @@ const AddScholar: React.FC<AddScholarProps> = ({
                         {calculateCitations5Years(scholar) && (
                           <> | Citations (5y): {calculateCitations5Years(scholar)}</>
                         )}
+                      </p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Research Interests: {researchInterests}
                       </p>
                     </div>
                     <button

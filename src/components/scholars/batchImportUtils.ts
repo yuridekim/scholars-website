@@ -8,8 +8,10 @@ export const extractOpenAlexId = (id: string): string => {
 };
 
 export const getAffiliation = (scholar: OpenAlexScholar): string => {
-  if (!scholar.last_known_institution) return '';
-  return scholar.last_known_institution.display_name || '';
+  if (scholar.affiliations && scholar.affiliations.length > 0) {
+    return scholar.affiliations.map(aff => aff.institution.display_name).join(', ');
+  }
+  return 'No affiliation information';
 };
 
 export const fetchAuthorById = async (openAlexId: string): Promise<OpenAlexScholar | null> => {

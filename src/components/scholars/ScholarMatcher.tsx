@@ -217,7 +217,7 @@ const importScholar = async (scholarIndex: number) => {
     const palantirScholar = {
       id: -1,
       name: scholarData.csvData.name,
-      email_domain: '@unknown.edu',
+      email_domain: "",
       affiliation: affiliationFromOpenAlex,
       scholar_id: openAlexIdToUse,
       citedby: openAlexCitedByCount,
@@ -230,7 +230,6 @@ const importScholar = async (scholarIndex: number) => {
       interests: authorData?.x_concepts?.slice(0, 5).map(c => c.display_name).join(", ") || "",
       full_name: authorData?.display_name || scholarData.csvData.name,
       method: "batch_csv_import",
-      summary_training_start: new Date().toISOString().split('T')[0],
       created_at: new Date().toISOString(),
       homepage: ""
     };
@@ -449,7 +448,7 @@ ScholarMatcher.importScholar = async (
     const palantirScholar = {
       id: -1,
       name: scholarData.csvData.name,
-      email_domain: '@unknown.edu',
+      email_domain: "",
       affiliation: affiliationFromOpenAlex,
       scholar_id: openAlexIdToUse,
       citedby: openAlexCitedByCount,
@@ -462,7 +461,6 @@ ScholarMatcher.importScholar = async (
       interests: authorData?.x_concepts?.slice(0, 5).map(c => c.display_name).join(", ") || "",
       full_name: authorData?.display_name || scholarData.csvData.name,
       method: "batch_csv_import",
-      summary_training_start: new Date().toISOString().split('T')[0],
       created_at: new Date().toISOString(),
       homepage: ""
     };
