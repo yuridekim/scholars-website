@@ -49,11 +49,12 @@ export async function initiateAuthFlow() {
   if (typeof window === 'undefined') {
     throw new Error('Authentication requires a browser environment');
   }
-  
+
   const state = generateRandomString(32);
   const codeVerifier = generateRandomString(64);
   
-  console.log("Generated state and code_verifier");
+  const currentPath = window.location.pathname;
+  sessionStorage.setItem('auth_redirect', currentPath);
   
   sessionStorage.setItem('auth_state', state);
   sessionStorage.setItem('code_verifier', codeVerifier);
@@ -84,7 +85,7 @@ export async function initiateAuthFlow() {
     
     // auth endpoint
     const authUrl = `${foundryUrl}/multipass/api/oauth2/authorize?${params.toString()}`;
-    
+
     window.location.href = authUrl;
   } catch (error) {
     console.error("Error in auth flow:", error);

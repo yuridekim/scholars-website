@@ -1,5 +1,6 @@
 // src/app/api/auth/token-exchange/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+const processedCodes = new Set<string>();
 
 // docs for error codes
 // https://www.palantir.com/docs/foundry/api/v2/general/overview/errors/?productId=foundry&slug=general&slug=overview&slug=errors
@@ -11,6 +12,13 @@ export async function POST(request: NextRequest) {
     
     if (!code) {
       return NextResponse.json({ error: 'Missing authorization code' }, { status: 400 });
+    }
+    
+    if (processedCodes.has(code)) {
+      return NextResponse.json({ 
+        error: 'Authorization code already used',
+        details: 'OAuth authorization codes can only be used once'
+      }, { status: 400 });
     }
     
     const FOUNDRY_URL = process.env.FOUNDRY_URL;
@@ -56,11 +64,8 @@ export async function POST(request: NextRequest) {
     
     if (!response.ok) {
       let errorText = await response.text();
-      try {
-        const errorJson = JSON.parse(errorText);
-        errorText = errorJson.error_description || errorJson.error || errorText;
-      } catch {
-      }
+      const errorJson = JSON.parse(errorText);
+      errorText = errorJson.error_description || errorJson.error || errorText;
       console.error('Token exchange failed', {
         status: response.status,
         error: errorText
@@ -72,6 +77,8 @@ export async function POST(request: NextRequest) {
     }
     
     const tokens = await response.json();
+    
+    processedCodes.add(code);
     
     return NextResponse.json({
       access_token: tokens.access_token,

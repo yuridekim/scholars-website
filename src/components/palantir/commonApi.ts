@@ -155,7 +155,7 @@ export class PalantirService<T extends PalantirEntity> {
       }
 
       const requestBody: Record<string, any> = {
-        pageSize: options.pageSize || 100
+        pageSize: options.pageSize || 200
       };
 
       if (options.pageToken) {

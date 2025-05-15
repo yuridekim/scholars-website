@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ManualScholarEntry, ScholarStats, ScholarList, AddScholar, ScholarFilters } from '@/components/scholars';
 import { useScholars } from '@/hooks/useScholars';
 import { useFoundryAuth } from '@/hooks/useFoundryAuth';
+import AuthComponent from '@/components/auth/AuthComponent';
 import { Download, AlertTriangle } from 'lucide-react';
 
 export default function ScholarsPage() {
@@ -150,7 +151,7 @@ export default function ScholarsPage() {
                             <p className="font-medium text-yellow-700">
                                 {auth.expiresAt && Date.now() >= auth.expiresAt 
                                     ? "Session expired. Please login again to access scholar data." 
-                                    : "Authentication required. Please login to view and manage scholars."}
+                                    : "Authentication required. Please login to connect with Palantir."}
                             </p>
                         </div>
                     </div>
@@ -169,7 +170,7 @@ export default function ScholarsPage() {
                     }}
                 />
 
-                {!isSessionInvalid && (
+                <AuthComponent>
                     <>
                         <ScholarFilters
                             filters={filters}
@@ -194,7 +195,7 @@ export default function ScholarsPage() {
 
                         <ScholarList scholars={filteredScholars} />
                     </>
-                )}
+                </AuthComponent>
             </div>
         </div>
     );

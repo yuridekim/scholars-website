@@ -43,11 +43,6 @@ export function usePalantirData<T>(
       const FOUNDRY_URL = process.env.NEXT_PUBLIC_FOUNDRY_URL;
       const ONTOLOGY_RID = process.env.NEXT_PUBLIC_ONTOLOGY_RID;
       
-      console.log(`Debug - Environment variables:`, {
-        FOUNDRY_URL,
-        ONTOLOGY_RID
-      });
-      
       if (!FOUNDRY_URL || !ONTOLOGY_RID) {
         throw new Error(`Missing required values: ${!FOUNDRY_URL ? 'FOUNDRY_URL ' : ''}${!ONTOLOGY_RID ? 'NEXT_PUBLIC_ONTOLOGY_RID ' : ''}`);
       }

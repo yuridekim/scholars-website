@@ -1,21 +1,31 @@
 // src/app/auth/callback/page.tsx
-
-// redirect uri should be open for callback page in Palantir
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function AuthCallbackPage() {
   const router = useRouter();
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [redirectPath, setRedirectPath] = useState<string>('/palantir');
+  const codeProcessed = useRef(false);
+  const finalRedirectPathRef = useRef<string>('/palantir');
 
   useEffect(() => {
     const handleCallback = async () => {
       try {
         if (typeof window === 'undefined') {
           return;
+        }
+        if (codeProcessed.current) {
+          return;
+        }
+
+        const storedRedirectPath = sessionStorage.getItem('auth_redirect');
+        if (storedRedirectPath) {
+          setRedirectPath(storedRedirectPath);
+          finalRedirectPathRef.current = storedRedirectPath;
         }
 
         const params = new URLSearchParams(window.location.search);
@@ -31,6 +41,8 @@ export default function AuthCallbackPage() {
         if (!code) {
           throw new Error('No authorization code received');
         }
+
+        codeProcessed.current = true;
         
         const savedState = sessionStorage.getItem('auth_state');
         if (state !== savedState) {
@@ -52,10 +64,9 @@ export default function AuthCallbackPage() {
           },
           body: JSON.stringify({
             code,
-            code_verifier: codeVerifier
+            code_verifier: codeVerifier,
           })
         });
-        
         if (!response.ok) {
           let errorText = 'Failed to exchange token';
           try {
@@ -91,8 +102,11 @@ export default function AuthCallbackPage() {
         sessionStorage.removeItem('auth_state');
         sessionStorage.removeItem('code_verifier');
         
+        const finalPath = finalRedirectPathRef.current;
+        
         setTimeout(() => {
-          router.push('/palantir');
+          router.push(finalPath);
+          sessionStorage.removeItem('auth_redirect');
         }, 1500);
         
       } catch (error) {
@@ -107,29 +121,50 @@ export default function AuthCallbackPage() {
 
   if (status === 'processing') {
     return (
-      <div className="auth-processing">
-        <h2>Processing Authentication...</h2>
-        <p>Please wait while we complete the authentication process.</p>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold mb-2">Processing Authentication...</h2>
+          <p className="text-gray-600">Please wait while we complete the authentication process.</p>
+        </div>
       </div>
     );
   }
   
   if (status === 'error') {
     return (
-      <div className="auth-error">
-        <h2>Authentication Error</h2>
-        <p>There was a problem completing the authentication process:</p>
-        <p className="error-message">{errorMessage}</p>
-        <button onClick={() => router.push('/')}>Return to Home</button>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center">
+          <div className="text-red-600 mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold mb-2">Authentication Error</h2>
+          <p className="text-gray-600 mb-2">There was a problem completing the authentication process:</p>
+          <p className="text-red-500 mb-4 p-2 bg-red-50 rounded">{errorMessage}</p>
+          <button 
+            onClick={() => router.push('/')} 
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition duration-200"
+          >
+            Return to Home
+          </button>
+        </div>
       </div>
     );
   }
   
   return (
-    <div className="auth-success">
-      <h2>Authentication Successful!</h2>
-      <p>You have been successfully authenticated.</p>
-      <p>Redirecting you to the application...</p>
+    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center">
+        <div className="text-green-600 mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h2 className="text-xl font-semibold mb-2">Authentication Successful!</h2>
+        <p className="text-gray-600">You have been successfully authenticated.</p>
+      </div>
     </div>
   );
 }
