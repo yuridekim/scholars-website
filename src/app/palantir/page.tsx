@@ -10,19 +10,21 @@ import AuthComponent from '@/components/auth/AuthComponent';
 
 export default function PalantirPage() {
   const auth = useFoundryAuth();
-  const { logout } = auth;
+  const { logout, isAuthenticated } = auth;
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
       <div className="max-w-6xl mx-auto">
         <header className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Research Dashboard</h1>
-          <button 
-            onClick={logout} 
-            className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition duration-200"
-          >
-            Logout
-          </button>
+          {isAuthenticated && (
+            <button 
+              onClick={logout} 
+              className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition duration-200"
+            >
+              Logout
+            </button>
+          )}
         </header>
         
         <AuthComponent>

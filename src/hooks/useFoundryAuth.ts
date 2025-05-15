@@ -14,6 +14,11 @@ export interface AuthState {
   logout: () => void;
 }
 
+const globalAuthState = {
+  isAuthenticated: false,
+  listeners: new Set<() => void>()
+};
+
 export function useFoundryAuth(): AuthState {
   const [tokenState, setTokenState] = useState({
     accessToken: null as string | null,
@@ -24,6 +29,8 @@ export function useFoundryAuth(): AuthState {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
+  const [, setForceUpdate] = useState({});
+  
   useEffect(() => {
     const loadStoredToken = () => {
       try {
@@ -48,6 +55,18 @@ export function useFoundryAuth(): AuthState {
             expiresAt,
             isAuthenticated: isValid
           });
+          
+          globalAuthState.isAuthenticated = isValid;
+        } else {
+          setTokenState({
+            accessToken: null,
+            refreshToken: null,
+            expiresAt: null,
+            isAuthenticated: false
+          });
+          
+          // Update global state
+          globalAuthState.isAuthenticated = false;
         }
         setLoading(false);
       } catch (err) {
@@ -58,6 +77,20 @@ export function useFoundryAuth(): AuthState {
     };
 
     loadStoredToken();
+    
+    const listener = () => {
+      setForceUpdate({});
+      setTokenState(prev => ({
+        ...prev,
+        isAuthenticated: globalAuthState.isAuthenticated
+      }));
+    };
+    
+    globalAuthState.listeners.add(listener);
+    
+    return () => {
+      globalAuthState.listeners.delete(listener);
+    };
   }, []);
 
   const login = async () => {
@@ -82,6 +115,9 @@ export function useFoundryAuth(): AuthState {
       expiresAt: null,
       isAuthenticated: false
     });
+    
+    globalAuthState.isAuthenticated = false;
+    globalAuthState.listeners.forEach(listener => listener());
   };
 
   return {
