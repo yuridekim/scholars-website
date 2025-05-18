@@ -323,12 +323,11 @@ export default function Page() {
 
             {grants.length > 0 && <CollapsibleGrants grants={grants} />}
 
-            {scholar.googleScholarPubs && scholar.googleScholarPubs.length > 0 && (
               <OpenAlexScholarSearch 
-                existingPublications={scholar.googleScholarPubs}
+                existingPublications={scholar.googleScholarPubs || []}
                 scholarName={scholar.name}
               />
-            )}
+            
           </CardContent>
         </Card>
       </div>
