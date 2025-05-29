@@ -20,7 +20,7 @@ const ScholarList: React.FC<ScholarListProps> = ({ scholars }) => {
                     <tr>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Affiliation</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Citations</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Citations</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">h-index</th>
                     </tr>
                 </thead>
@@ -42,15 +42,9 @@ const ScholarList: React.FC<ScholarListProps> = ({ scholars }) => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="text-sm text-gray-900">{scholar.citedby || 0}</div>
-                                {scholar.citedby5y && (
-                                    <div className="text-xs text-gray-500">Last 5y: {scholar.citedby5y}</div>
-                                )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="text-sm text-gray-900">{scholar.hindex || 0}</div>
-                                {scholar.hindex5y && (
-                                    <div className="text-xs text-gray-500">Last 5y: {scholar.hindex5y}</div>
-                                )}
                             </td>
                         </tr>
                     ))}
