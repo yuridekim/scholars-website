@@ -79,7 +79,6 @@ const UnifiedPublications: React.FC<UnifiedPublicationsProps> = ({
   palantirError,
   scholarName = ''
 }) => {
-  // OpenAlex state
   const [searchQuery, setSearchQuery] = useState<string>(scholarName);
   const [scholars, setScholars] = useState<OpenAlexAuthor[]>([]);
   const [selectedScholar, setSelectedScholar] = useState<OpenAlexAuthor | null>(null);
@@ -96,7 +95,6 @@ const UnifiedPublications: React.FC<UnifiedPublicationsProps> = ({
   
   const auth = useFoundryAuth();
 
-  // OpenAlex search functions
   const searchScholars = async () => {
     if (!searchQuery.trim()) return;
 
@@ -230,18 +228,17 @@ const UnifiedPublications: React.FC<UnifiedPublicationsProps> = ({
     setError(null);
     
     try {
-      // Format publications to match PalantirPublication interface
       const publicationsToSave = openAlexPubs.map(pub => ({
-      id: pub.id || 0,
-      title: pub.title || "",
-      publication_year: pub.pubYear || 0,
-      journal: pub.journal || "",
-      authors: pub.author || "",
-      publication_url: pub.pubUrl || "",
-      num_citations: pub.numCitations || 0,
-      openalex_author_id: selectedScholar?.id || "",     // Changed from openalexAuthorId
-      openalex_author_name: selectedScholar?.display_name || "" // Changed from openalexAuthorName
-    }));
+        id: pub.id || 0,
+        title: pub.title || "",
+        publication_year: pub.pubYear || 0,
+        journal: pub.journal || "",
+        authors: pub.author || "",
+        publication_url: pub.pubUrl || "",
+        num_citations: pub.numCitations || 0,
+        openalex_author_id: selectedScholar?.id || "",
+        openalex_author_name: selectedScholar?.display_name || ""
+      }));
       
       if (auth.accessToken) {
         await savePublicationsToPalantir(publicationsToSave, auth.accessToken);
@@ -338,7 +335,6 @@ const UnifiedPublications: React.FC<UnifiedPublicationsProps> = ({
           </div>
         </div>
         
-        {/* Show existing publications without OpenAlex functionality */}
         {allPublications.filter(p => p.source !== 'OpenAlex').length === 0 ? (
           <p className="text-sm text-gray-500">No publications found.</p>
         ) : (
@@ -500,7 +496,6 @@ const UnifiedPublications: React.FC<UnifiedPublicationsProps> = ({
         </div>
       )}
       
-      {/* OpenAlex Scholar Search UI */}
       {isSearchMode && (
         <div className="border rounded-lg p-4 bg-white mb-6">
           <h3 className="text-lg font-medium mb-2">Link to OpenAlex Author</h3>
@@ -525,7 +520,6 @@ const UnifiedPublications: React.FC<UnifiedPublicationsProps> = ({
             </form>
           </div>
           
-          {/* Scholar Search Results */}
           {isSearching && <div className="text-center py-4">Searching...</div>}
           
           {scholars.length > 0 && (
@@ -603,7 +597,6 @@ const UnifiedPublications: React.FC<UnifiedPublicationsProps> = ({
         </div>
       )}
       
-      {/* New publications alert */}
       {newOpenAlexPubs.length > 0 && (
         <div className="p-2 bg-yellow-50 border border-yellow-200 rounded mb-4">
           <p className="text-sm text-yellow-700">
@@ -612,7 +605,6 @@ const UnifiedPublications: React.FC<UnifiedPublicationsProps> = ({
         </div>
       )}
       
-      {/* Unified Publications List */}
       {allPublications.length === 0 ? (
         <p className="text-sm text-gray-500">No publications found.</p>
       ) : (

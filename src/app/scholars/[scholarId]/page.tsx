@@ -2,11 +2,13 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { Scholar, GoogleScholarPub, PubmedPub, Grant } from '@/lib/types'
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Scholar, PubmedPub, Grant } from '@/lib/types'
+import { PalantirPublication, FetchOptions } from '@/components/palantir/types'
+import { fetchPublicationsFromPalantir } from '@/components/palantir/palantirPublications'
+import { Card, CardContent} from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { CollapsibleGrants } from '@/components/grants';
-import OpenAlexScholarSearch from '@/components/openalex/publications';
+import UnifiedPublications from '@/components/publications/unifiedPublications';
 import { useFoundryAuth } from '@/hooks/useFoundryAuth';
 
 const extractUniqueGrants = (pubs?: PubmedPub[]): Grant[] => {
@@ -160,30 +162,6 @@ const GrantCard = ({ grant }: { grant: Grant }) => (
   </Card>
 )
 
-const Publications = ({ pubs }: { pubs: GoogleScholarPub[] }) => (
-  <div className="mt-6">
-    <h2 className="text-xl font-semibold mb-4">Recent Publications</h2>
-    <div className="space-y-4">
-      {pubs.map((pub) => (
-        <div key={pub.id} className="border-b pb-4">
-          <h3 className="text-lg font-medium text-gray-900">{pub.title}</h3>
-          <p className="text-sm text-gray-500 mt-1">
-            {pub.author} ({pub.pubYear})
-          </p>
-          {pub.journal && (
-            <p className="text-sm text-gray-500 mt-1">{pub.journal}</p>
-          )}
-          {pub.numCitations !== undefined && (
-            <p className="text-sm text-gray-500 mt-1">
-              Citations: {pub.numCitations}
-            </p>
-          )}
-        </div>
-      ))}
-    </div>
-  </div>
-)
-
 const InfoItem = ({ label, value }: { label: string; value: React.ReactNode }) => (
   <div>
     <dt className="text-sm font-medium text-gray-500">{label}</dt>
@@ -221,6 +199,11 @@ export default function Page() {
   const [grants, setGrants] = useState<Grant[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isAuthReady, setIsAuthReady] = useState(false)
+  
+  const [palantirPubs, setPalantirPubs] = useState<PalantirPublication[]>([])
+  const [palantirLoading, setPalantirLoading] = useState(false)
+  const [palantirError, setPalantirError] = useState<string | null>(null)
+  
   const auth = useFoundryAuth()
 
   useEffect(() => {
@@ -266,6 +249,31 @@ export default function Page() {
   
     fetchScholar()
   }, [scholarId, isAuthReady])
+
+  useEffect(() => {
+    if (!scholar || !auth.accessToken) return
+    
+    const fetchPalantirPubs = async () => {
+      try {
+        setPalantirLoading(true)
+        setPalantirError(null)
+        
+        const options: FetchOptions = {
+          filter: `openalexAuthorName="${scholar.name}"`
+        }
+        
+        const response = await fetchPublicationsFromPalantir(auth.accessToken!, options)
+        setPalantirPubs(response.data)
+      } catch (error) {
+        console.error('Error fetching Palantir publications:', error)
+        setPalantirError(error instanceof Error ? error.message : 'Failed to load publications')
+      } finally {
+        setPalantirLoading(false)
+      }
+    }
+    
+    fetchPalantirPubs()
+  }, [scholar, auth.accessToken])
 
   if (!isAuthReady || loading) {
     return <LoadingSpinner />
@@ -323,10 +331,13 @@ export default function Page() {
 
             {grants.length > 0 && <CollapsibleGrants grants={grants} />}
 
-              <OpenAlexScholarSearch 
-                existingPublications={scholar.googleScholarPubs || []}
-                scholarName={scholar.name}
-              />
+            <UnifiedPublications 
+              googlePubs={scholar.googleScholarPubs || []}
+              palantirPubs={palantirPubs}
+              palantirLoading={palantirLoading}
+              palantirError={palantirError}
+              scholarName={scholar.name}
+            />
             
           </CardContent>
         </Card>
