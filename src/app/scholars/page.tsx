@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ManualScholarEntry, ScholarStats, ScholarList, AddScholar, ScholarFilters, BatchScholarImport } from '@/components/scholars';
+import { ManualScholarEntry, ScholarStats, ScholarList, AddScholar, ScholarFilters, BatchScholarImport, BatchPublicationUpdate } from '@/components/scholars';
 import { useScholars } from '@/hooks/useScholars';
 import { useFoundryAuth } from '@/hooks/useFoundryAuth';
 import AuthComponent from '@/components/auth/AuthComponent';
@@ -41,6 +41,7 @@ export default function ScholarsPage() {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [refreshTooltip, setRefreshTooltip] = useState(false);
     const [importMode, setImportMode] = useState<'individual' | 'batch'>('individual');
+    const [showBatchUpdate, setShowBatchUpdate] = useState(false);
 
 
     const isSessionInvalid = !auth.accessToken || (auth.expiresAt && Date.now() >= auth.expiresAt);
@@ -170,6 +171,16 @@ export default function ScholarsPage() {
                                 )}
                             </div>
                             
+                            {scholars.length > 0 && (
+                                <button
+                                    onClick={() => setShowBatchUpdate(!showBatchUpdate)}
+                                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                                >
+                                    <RefreshCw size={20} />
+                                    {showBatchUpdate ? 'Hide' : 'Batch Update Publications'}
+                                </button>
+                            )}
+                            
                             {filteredScholars.length > 0 && (
                                 <button
                                     onClick={handleExport}
@@ -194,6 +205,13 @@ export default function ScholarsPage() {
                             </p>
                         </div>
                     </div>
+                )}
+
+                {showBatchUpdate && !isSessionInvalid && auth.isAuthenticated && scholars.length > 0 && (
+                    <BatchPublicationUpdate
+                        scholars={scholars}
+                        onUpdateComplete={handleRefresh}
+                    />
                 )}
 
                 <div className="mb-6 bg-white rounded-lg shadow p-4">

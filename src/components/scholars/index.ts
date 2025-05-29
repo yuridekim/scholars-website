@@ -6,3 +6,4 @@ export { default as ScholarFilters } from './ScholarFilters';
 export { default as BatchScholarImport } from './BatchScholarImport';
 export { default as ScholarImportResults } from './ScholarImportResults';
 export { default as ScholarMatcher } from './ScholarMatcher';
+export { default as BatchPublicationUpdate } from './BatchPublicationUpdate';
