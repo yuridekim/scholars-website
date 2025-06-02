@@ -120,9 +120,17 @@ export class PalantirService<T extends PalantirEntity> {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          endpoint: `/api/v2/ontologies/${ONTOLOGY_RID}/objects/${this.entityType}/${entityId}`,
+          endpoint: `/api/v2/ontologies/${ONTOLOGY_RID}/actions/delete-${this.actionName}/apply`,
           token: accessToken,
-          method: 'DELETE'
+          method: 'POST',
+          requestBody: {
+            parameters: {
+              [this.entityType]: entityId
+            },
+            options: {
+              returnEdits: "NONE"
+            }
+          }
         })
       });
 
