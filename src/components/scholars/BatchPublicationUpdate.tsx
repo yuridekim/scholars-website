@@ -68,6 +68,13 @@ const BatchPublicationUpdate: React.FC<BatchPublicationUpdateProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [saveResults, setSaveResults] = useState<{ success: boolean; message: string } | null>(null);
   
+  const extractOpenAlexId = (fullId: string): string => {
+    if (fullId.startsWith('https://openalex.org/')) {
+      return fullId.replace('https://openalex.org/', '');
+    }
+    return fullId;
+  };
+
   const fetchPalantirPublications = async (scholarId: string): Promise<number[]> => {
     try {
       if (!auth.accessToken) return [];
@@ -232,7 +239,7 @@ const BatchPublicationUpdate: React.FC<BatchPublicationUpdateProps> = ({
             authors: pub.author || "",
             publication_url: pub.pubUrl || "",
             num_citations: pub.numCitations || 0,
-            openalex_author_id: scholarId,
+            openalex_author_id: extractOpenAlexId(scholarId), // FIXED: Extract clean ID
             openalex_author_name: scholar.name || ""
           }));
 
@@ -403,7 +410,7 @@ const BatchPublicationUpdate: React.FC<BatchPublicationUpdateProps> = ({
             authors: pub.author || "",
             publication_url: pub.pubUrl || "",
             num_citations: pub.numCitations || 0,
-            openalex_author_id: scholarId,
+            openalex_author_id: extractOpenAlexId(scholarId), // FIXED: Extract clean ID
             openalex_author_name: scholar.name || ""
           }));
         

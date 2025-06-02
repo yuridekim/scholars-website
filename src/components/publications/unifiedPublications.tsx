@@ -261,6 +261,13 @@ const UnifiedPublications: React.FC<UnifiedPublicationsProps> = ({
     // Clear Palantir publications when resetting
     setPalantirPubs([]);
   };
+  
+  const extractOpenAlexId = (fullId: string): string => {
+  if (fullId.startsWith('https://openalex.org/')) {
+    return fullId.replace('https://openalex.org/', '');
+  }
+  return fullId;
+};
 
   const handleSaveToPalantir = async () => {
     if (!selectedScholar || openAlexPubs.length === 0) {
@@ -281,7 +288,7 @@ const UnifiedPublications: React.FC<UnifiedPublicationsProps> = ({
         authors: pub.author || "",
         publication_url: pub.pubUrl || "",
         num_citations: pub.numCitations || 0,
-        openalex_author_id: selectedScholar?.id || "",
+        openalex_author_id: extractOpenAlexId(selectedScholar?.id || ""),
         openalex_author_name: selectedScholar?.display_name || ""
       }));
       
