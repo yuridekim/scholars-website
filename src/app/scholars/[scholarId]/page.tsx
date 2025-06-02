@@ -200,10 +200,6 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null)
   const [isAuthReady, setIsAuthReady] = useState(false)
   
-  const [palantirPubs, setPalantirPubs] = useState<PalantirPublication[]>([])
-  const [palantirLoading, setPalantirLoading] = useState(false)
-  const [palantirError, setPalantirError] = useState<string | null>(null)
-  
   const auth = useFoundryAuth()
 
   useEffect(() => {
@@ -249,31 +245,6 @@ export default function Page() {
   
     fetchScholar()
   }, [scholarId, isAuthReady])
-
-  useEffect(() => {
-    if (!scholar || !auth.accessToken) return
-    
-    const fetchPalantirPubs = async () => {
-      try {
-        setPalantirLoading(true)
-        setPalantirError(null)
-        
-        const options: FetchOptions = {
-          filter: `openalexAuthorName="${scholar.name}"`
-        }
-        
-        const response = await fetchPublicationsFromPalantir(auth.accessToken!, options)
-        setPalantirPubs(response.data)
-      } catch (error) {
-        console.error('Error fetching Palantir publications:', error)
-        setPalantirError(error instanceof Error ? error.message : 'Failed to load publications')
-      } finally {
-        setPalantirLoading(false)
-      }
-    }
-    
-    fetchPalantirPubs()
-  }, [scholar, auth.accessToken])
 
   if (!isAuthReady || loading) {
     return <LoadingSpinner />
@@ -333,10 +304,8 @@ export default function Page() {
 
             <UnifiedPublications 
               googlePubs={scholar.googleScholarPubs || []}
-              palantirPubs={palantirPubs}
-              palantirLoading={palantirLoading}
-              palantirError={palantirError}
               scholarName={scholar.name}
+              scholarId={scholarId}
             />
             
           </CardContent>

@@ -154,6 +154,13 @@ export class PalantirService<T extends PalantirEntity> {
         throw new Error('Missing required environment variables');
       }
 
+      const isSearchEndpoint = !!options.filter;
+      const endpoint = isSearchEndpoint
+        ? `/api/v2/ontologies/${ONTOLOGY_RID}/objects/${this.entityType}/search`
+        : `/api/v2/ontologies/${ONTOLOGY_RID}/objects/${this.entityType}`;
+
+      const httpMethod = isSearchEndpoint ? 'POST' : 'GET';
+
       const requestBody: Record<string, any> = {
         pageSize: options.pageSize || 200
       };
@@ -162,8 +169,19 @@ export class PalantirService<T extends PalantirEntity> {
         requestBody.pageToken = options.pageToken;
       }
 
+      // Parse filter string and convert to Palantir search format
       if (options.filter) {
-        requestBody.filter = options.filter;
+        const match = options.filter.match(/(\w+)="([^"]+)"/);
+        if (match) {
+          const [, field, value] = match;
+          requestBody.where = {
+            type: "eq",
+            field: field,
+            value: value
+          };
+        } else {
+          throw new Error(`Invalid filter format: ${options.filter}`);
+        }
       }
 
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -173,9 +191,9 @@ export class PalantirService<T extends PalantirEntity> {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          endpoint: `/api/v2/ontologies/${ONTOLOGY_RID}/objects/${this.entityType}`,
+          endpoint: endpoint,
           token: accessToken,
-          method: 'GET',
+          method: httpMethod,
           requestBody
         })
       });
@@ -275,7 +293,7 @@ export class PalantirService<T extends PalantirEntity> {
       }
 
       const endpoint = `/api/v2/ontologies/${ONTOLOGY_RID}/objects/${this.entityType}/${entityId}/links/${linkName}`;
-      
+
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
       const response = await fetch(`${baseUrl}/api/foundry-proxy`, {
         method: 'POST',
@@ -291,7 +309,7 @@ export class PalantirService<T extends PalantirEntity> {
       });
 
       const responseText = await response.text();
-      
+
       let responseData;
       try {
         responseData = JSON.parse(responseText);

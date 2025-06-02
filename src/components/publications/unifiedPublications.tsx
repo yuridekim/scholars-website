@@ -1,9 +1,9 @@
-import React, { useState, KeyboardEvent } from 'react';
+import React, { useState, KeyboardEvent, useEffect } from 'react';
 import { Check, RefreshCw, LinkIcon, AlertTriangle, Database } from 'lucide-react';
 import { GoogleScholarPub } from '@/lib/types';
-import { PalantirPublication } from '@/components/palantir/types';
+import { PalantirPublication, FetchOptions } from '@/components/palantir/types';
 import { Badge } from "@/components/ui/badge";
-import { savePublicationsToPalantir } from '@/components/palantir/palantirPublications';
+import { savePublicationsToPalantir, fetchPublicationsFromPalantir } from '@/components/palantir/palantirPublications';
 import { useFoundryAuth } from '@/hooks/useFoundryAuth';
 
 interface OpenAlexAuthor {
@@ -60,24 +60,20 @@ interface UnifiedPublication {
   journal?: string;
   citations?: number;
   url?: string;
-  source: 'Google Scholar' | 'Palantir' | 'OpenAlex';
+  source: 'Google Scholar' | 'Palantir' | 'OpenAlex' | 'PubMed';
   isNew?: boolean;
 }
 
 interface UnifiedPublicationsProps {
   googlePubs: GoogleScholarPub[];
-  palantirPubs: PalantirPublication[];
-  palantirLoading: boolean;
-  palantirError: string | null;
   scholarName?: string;
+  scholarId?: string;
 }
 
 const UnifiedPublications: React.FC<UnifiedPublicationsProps> = ({ 
   googlePubs, 
-  palantirPubs, 
-  palantirLoading, 
-  palantirError,
-  scholarName = ''
+  scholarName = '',
+  scholarId
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>(scholarName);
   const [scholars, setScholars] = useState<OpenAlexAuthor[]>([]);
@@ -93,7 +89,53 @@ const UnifiedPublications: React.FC<UnifiedPublicationsProps> = ({
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveSuccess, setSaveSuccess] = useState<boolean | null>(null);
   
+  const [palantirPubs, setPalantirPubs] = useState<PalantirPublication[]>([]);
+  const [palantirLoading, setPalantirLoading] = useState<boolean>(false);
+  const [palantirError, setPalantirError] = useState<string | null>(null);
+  
   const auth = useFoundryAuth();
+
+  useEffect(() => {
+    if (!auth.accessToken) return;
+    
+    const fetchPalantirPubs = async () => {
+      try {
+        setPalantirLoading(true);
+        setPalantirError(null);
+        
+        let options: FetchOptions;
+        
+        if (selectedScholar) {
+          options = {
+            filter: `openalexAuthorId="${selectedScholar.id}"`
+          };
+          console.log('Fetching Palantir publications for selected OpenAlex ID:', selectedScholar.id);
+        } else if (scholarId) {
+          options = {
+          filter: `openalexAuthorId="${scholarId}"`,
+          pageSize: 200
+        };
+          console.log('Fetching Palantir publications only for:', scholarId);
+        } else {
+          setPalantirPubs([]);
+          setPalantirLoading(false);
+          return;
+        }
+        
+        const response = await fetchPublicationsFromPalantir(auth.accessToken!, options);
+        setPalantirPubs(response.data);
+        
+        console.log(`Fetched ${response.data.length} Palantir publications for ${scholarId}`);
+      } catch (error) {
+        console.error('Error fetching Palantir publications:', error);
+        setPalantirError(error instanceof Error ? error.message : 'Failed to load publications');
+      } finally {
+        setPalantirLoading(false);
+      }
+    };
+    
+    fetchPalantirPubs();
+  }, [selectedScholar, auth.accessToken, scholarId]);
 
   const searchScholars = async () => {
     if (!searchQuery.trim()) return;
@@ -147,6 +189,7 @@ const UnifiedPublications: React.FC<UnifiedPublicationsProps> = ({
   };
 
   const selectScholar = (scholar: OpenAlexAuthor) => {
+    console.log('selectScholar called with:', scholar.display_name, scholar.id);
     setSelectedScholar(scholar);
     setIsSearchMode(false);
     checkForUpdates(scholar);
@@ -215,6 +258,8 @@ const UnifiedPublications: React.FC<UnifiedPublicationsProps> = ({
     setIsUpToDate(false);
     setSelectedScholar(null);
     setSaveSuccess(null);
+    // Clear Palantir publications when resetting
+    setPalantirPubs([]);
   };
 
   const handleSaveToPalantir = async () => {
@@ -249,6 +294,22 @@ const UnifiedPublications: React.FC<UnifiedPublicationsProps> = ({
       
       setSaveSuccess(true);
       console.log(`Successfully saved ${publicationsToSave.length} publications to Palantir`);
+      
+      // Refresh Palantir publications after saving
+      if (selectedScholar) {
+        const options: FetchOptions = {
+          filter: `openalex_author_id="${selectedScholar.id}"`
+        };
+        const response = await fetchPublicationsFromPalantir(auth.accessToken!, options);
+        setPalantirPubs(response.data);
+      } else if (scholarId) {
+        const options: FetchOptions = {
+          filter: `scholar_id="${scholarId}"`
+        };
+        const response = await fetchPublicationsFromPalantir(auth.accessToken!, options);
+        setPalantirPubs(response.data);
+      }
+      
     } catch (err: unknown) {
       console.error('Error saving to Palantir:', err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -268,6 +329,13 @@ const UnifiedPublications: React.FC<UnifiedPublicationsProps> = ({
     !existingTitles.has(pub.title.toLowerCase().trim())
   );
 
+  // Determine source for Google Scholar publications (they might actually be PubMed)
+  const getSourceForGooglePubs = (pub: GoogleScholarPub): 'Google Scholar' | 'PubMed' => {
+    // You can add logic here to determine if it's actually from PubMed
+    // For now, let's assume they're PubMed if they have certain characteristics
+    return 'PubMed';
+  };
+
   const allPublications: UnifiedPublication[] = [
     ...googlePubs.map(pub => ({
       id: `gs-${pub.id}`,
@@ -276,7 +344,7 @@ const UnifiedPublications: React.FC<UnifiedPublicationsProps> = ({
       year: pub.pubYear || 0,
       journal: pub.journal,
       citations: pub.numCitations,
-      source: 'Google Scholar' as const
+      source: getSourceForGooglePubs(pub)
     })),
     ...palantirPubs.map(pub => ({
       id: `palantir-${pub.id}`,
@@ -364,7 +432,10 @@ const UnifiedPublications: React.FC<UnifiedPublicationsProps> = ({
                   </a>
                 )}
                 <Badge 
-                  variant={pub.source === 'Google Scholar' ? 'outline' : 'secondary'} 
+                  variant={
+                    pub.source === 'PubMed' ? 'outline' : 
+                    pub.source === 'Palantir' ? 'secondary' : 'default'
+                  } 
                   className="mt-2"
                 >
                   {pub.source}
@@ -379,6 +450,22 @@ const UnifiedPublications: React.FC<UnifiedPublicationsProps> = ({
 
   return (
     <div className="mt-6">
+      {!selectedScholar && !scholarId && (
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-md mb-4">
+          <p className="text-sm text-blue-700">
+            Select an OpenAlex author to see publications from Palantir database that match the author.
+          </p>
+        </div>
+      )}
+
+      {!selectedScholar && scholarId && palantirPubs.length > 0 && (
+        <div className="p-4 bg-green-50 border border-green-200 rounded-md mb-4">
+          <p className="text-sm text-green-700">
+            Found {palantirPubs.length} publication{palantirPubs.length !== 1 ? 's' : ''} in Palantir database for this scholar.
+          </p>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">Publications</h2>
         
@@ -406,7 +493,7 @@ const UnifiedPublications: React.FC<UnifiedPublicationsProps> = ({
           {palantirLoading && (
             <div className="flex items-center space-x-2 mr-3">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900" />
-              <span className="text-sm text-gray-500">Loading...</span>
+              <span className="text-sm text-gray-500">Loading Palantir...</span>
             </div>
           )}
           
@@ -476,7 +563,7 @@ const UnifiedPublications: React.FC<UnifiedPublicationsProps> = ({
       
       {palantirError && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-md mb-4">
-          <p className="text-sm text-red-600">Error loading some publications: {palantirError}</p>
+          <p className="text-sm text-red-600">Error loading Palantir publications: {palantirError}</p>
         </div>
       )}
       
@@ -642,7 +729,7 @@ const UnifiedPublications: React.FC<UnifiedPublicationsProps> = ({
               )}
               <Badge 
                 variant={
-                  pub.source === 'Google Scholar' ? 'outline' : 
+                  pub.source === 'PubMed' ? 'outline' : 
                   pub.source === 'Palantir' ? 'secondary' : 'default'
                 } 
                 className="mt-2"
