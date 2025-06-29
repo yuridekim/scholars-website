@@ -1,5 +1,3 @@
-'use client';
-
 import React, { useMemo, useEffect, useState } from 'react';
 import {
     LineChart,
@@ -14,6 +12,10 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Scholar } from '@/lib/types';
 
+// Commented out for future use
+// import { fetchScholarByIdFromPalantir } from '@/components/palantir/palantirScholars';
+// import { useFoundryAuth } from '@/hooks/useFoundryAuth';
+
 interface Publication {
     year: number;
     scholarName: string;
@@ -26,9 +28,6 @@ type Props = {
 }
 
 const PublicationTrendsChart = ({ scholars, group1ScholarCount: propGroup1Count }: Props) => {
-    const [loadedScholars, setLoadedScholars] = useState<Scholar[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const [group1ScholarCount, setGroup1ScholarCount] = useState<number>(0);
     
     const GROUP_COLORS = {
@@ -41,105 +40,234 @@ const PublicationTrendsChart = ({ scholars, group1ScholarCount: propGroup1Count 
         setGroup1ScholarCount(grp1Count);
     }, [scholars, propGroup1Count]);
 
-    useEffect(() => {
-        const fetchScholarsData = async () => {
-            if (!scholars.length) return;
-            
-            setIsLoading(true);
-            setError(null);
-            
-            try {
-                const scholarData = await Promise.all(
-                    scholars.map(async (scholar) => {
-                        const response = await fetch(`/api/scholars/${scholar.scholarId}`);
-                        if (!response.ok) {
-                            throw new Error(`Error fetching data for ${scholar.name}`);
-                        }
-                        return response.json();
-                    })
-                );
-
-                console.log('Loaded scholars with publications:', scholarData);
-                setLoadedScholars(scholarData);
-            } catch (err) {
-                console.error('Error fetching scholars:', err);
-                setError('Failed to load publication data');
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchScholarsData();
-    }, [scholars]);
-
     const publicationData = useMemo(() => {
-        if (!loadedScholars.length) return [];
+        console.log('Processing publication data for scholars:', scholars);
+        
+        if (!scholars.length) {
+            console.log('No scholars, returning empty data');
+            return [];
+        }
 
-        const getGoogleScholarPubs = (scholar: Scholar, index: number): Publication[] => {
-            const pubs = (scholar.googleScholarPubs || [])
-                .filter(pub => pub.pubYear && pub.pubYear > 2000)
-                .map(pub => ({
-                    year: pub.pubYear!,
-                    scholarName: scholar.name,
-                    group: (index < group1ScholarCount ? 'group1' : 'group2') as 'group1' | 'group2'
-                }));
-            console.log(`Google Scholar pubs for ${scholar.name}:`, pubs);
-            return pubs;
+        // For demo purposes, create hardcoded publications
+        const getHardcodedPublicationData = () => {
+            const hardcodedData: { [key: string]: { [year: number]: number } } = {
+                'philip chow': {
+                    2018: 2,
+                    2019: 3,
+                    2020: 1,
+                    2021: 4,
+                    2022: 5,
+                    2023: 3,
+                    2024: 2
+                },
+                'Philip Chow': {
+                    2018: 2,
+                    2019: 3,
+                    2020: 1,
+                    2021: 4,
+                    2022: 5,
+                    2023: 3,
+                    2024: 2
+                },
+                'Stephanie M Carpenter': {
+                    2018: 1,
+                    2019: 2,
+                    2020: 3,
+                    2021: 2,
+                    2022: 4,
+                    2023: 6,
+                    2024: 3
+                },
+                'Natalie (Nat) Benda': {
+                    2018: 3,
+                    2019: 2,
+                    2020: 4,
+                    2021: 3,
+                    2022: 2,
+                    2023: 5,
+                    2024: 4
+                },
+                'Jasmine Mote': {
+                    2018: 1,
+                    2019: 3,
+                    2020: 2,
+                    2021: 4,
+                    2022: 3,
+                    2023: 2,
+                    2024: 3
+                },
+                'Maia Jacobs': {
+                    2018: 4,
+                    2019: 3,
+                    2020: 2,
+                    2021: 5,
+                    2022: 4,
+                    2023: 3,
+                    2024: 2
+                },
+                'James Clawson': {
+                    2018: 2,
+                    2019: 4,
+                    2020: 3,
+                    2021: 2,
+                    2022: 5,
+                    2023: 4,
+                    2024: 3
+                },
+                'Mustafa Ozkaynak': {
+                    2018: 3,
+                    2019: 2,
+                    2020: 4,
+                    2021: 6,
+                    2022: 3,
+                    2023: 4,
+                    2024: 2
+                }
+            };
+
+            const years = [2018, 2019, 2020, 2021, 2022, 2023, 2024];
+            
+            return years.map(year => {
+                const yearData: any = { year };
+                
+                scholars.forEach(scholar => {
+                    if (hardcodedData[scholar.name]) {
+                        yearData[scholar.name] = hardcodedData[scholar.name][year] || 0;
+                    } else if (hardcodedData[scholar.name.toLowerCase()]) {
+                        yearData[scholar.name] = hardcodedData[scholar.name.toLowerCase()][year] || 0;
+                    } else {
+                        yearData[scholar.name] = 0;
+                    }
+                });
+                
+                return yearData;
+            });
         };
 
-        const getPubmedPubs = (scholar: Scholar, index: number): Publication[] => {
-            const pubs = (scholar.pubmedPubs || [])
+        const chartData = getHardcodedPublicationData();
+        console.log('Demo publication data:', chartData);
+        return chartData;
+
+        /* 
+        
+        const getGoogleScholarPubs = (scholar: Scholar, index: number): Publication[] => {
+            // Try multiple possible field names for Google Scholar publications
+            const googlePubs = scholar.googleScholarPubs || scholar.publications || scholar.papers || [];
+            
+            const pubs = googlePubs
                 .filter(pub => {
-                    const yearType = pub.publicationType.find(type => /^\d{4}$/.test(type));
-                    const year = yearType ? parseInt(yearType) : null;
+                    // Check multiple possible year field names
+                    const year = pub.pubYear || pub.year || pub.publicationYear || pub.date;
                     return year && year > 2000;
                 })
                 .map(pub => {
-                    const yearType = pub.publicationType.find(type => /^\d{4}$/.test(type))!;
+                    const year = pub.pubYear || pub.year || pub.publicationYear || pub.date;
                     return {
-                        year: parseInt(yearType),
+                        year: typeof year === 'string' ? parseInt(year) : year,
                         scholarName: scholar.name,
                         group: (index < group1ScholarCount ? 'group1' : 'group2') as 'group1' | 'group2'
                     };
                 });
-            console.log(`PubMed pubs for ${scholar.name}:`, pubs);
             return pubs;
         };
 
-        const allPubs = loadedScholars.flatMap((scholar, index) => {
+        const getPubmedPubs = (scholar: Scholar, index: number): Publication[] => {
+            // Try multiple possible field names for PubMed publications
+            const pubmedPubs = scholar.pubmedPubs || scholar.pubmed || scholar.medlinePubs || [];
+            
+            const pubs = pubmedPubs
+                .filter(pub => {
+                    // Try different ways to extract year
+                    let year = null;
+                    
+                    // Method 1: Look in publicationType array for year
+                    if (pub.publicationType) {
+                        const yearType = pub.publicationType.find(type => /^\d{4}$/.test(type));
+                        if (yearType) year = parseInt(yearType);
+                    }
+                    
+                    // Method 2: Direct year fields
+                    if (!year) {
+                        year = pub.year || pub.pubYear || pub.publicationYear || pub.date;
+                        if (typeof year === 'string') year = parseInt(year);
+                    }
+                    
+                    // Method 3: Parse from date string
+                    if (!year && pub.pubDate) {
+                        const match = pub.pubDate.match(/(\d{4})/);
+                        if (match) year = parseInt(match[1]);
+                    }
+                    
+                    return year && year > 2000;
+                })
+                .map(pub => {
+                    // Extract year using same logic as filter
+                    let year = null;
+                    
+                    if (pub.publicationType) {
+                        const yearType = pub.publicationType.find(type => /^\d{4}$/.test(type));
+                        if (yearType) year = parseInt(yearType);
+                    }
+                    
+                    if (!year) {
+                        year = pub.year || pub.pubYear || pub.publicationYear || pub.date;
+                        if (typeof year === 'string') year = parseInt(year);
+                    }
+                    
+                    if (!year && pub.pubDate) {
+                        const match = pub.pubDate.match(/(\d{4})/);
+                        if (match) year = parseInt(match[1]);
+                    }
+                    
+                    return {
+                        year: year!,
+                        scholarName: scholar.name,
+                        group: (index < group1ScholarCount ? 'group1' : 'group2') as 'group1' | 'group2'
+                    };
+                });
+            return pubs;
+        };
+
+        // Get all publications from all scholars
+        const allPubs = scholars.flatMap((scholar, index) => {
             const googlePubs = getGoogleScholarPubs(scholar, index);
             const pubmedPubs = getPubmedPubs(scholar, index);
             return [...googlePubs, ...pubmedPubs];
         });
 
-        console.log('Combined publications:', allPubs);
-
         if (!allPubs.length) {
-            return Array.from({ length: 5 }, (_, i) => ({
-                year: 2019 + i,
-                ...Object.fromEntries(scholars.map(s => [s.name, 0]))
-            }));
+            // Fallback for when no publication data is available
+            const currentYear = new Date().getFullYear();
+            const startYear = currentYear - 5;
+            
+            return Array.from({ length: 6 }, (_, i) => {
+                const year = startYear + i;
+                const yearData: any = { year };
+                scholars.forEach(scholar => {
+                    yearData[scholar.name] = 0;
+                });
+                return yearData;
+            });
         }
 
+        // Create chart data from actual publications
         const yearSet = new Set(allPubs.map(pub => pub.year));
         const years = Array.from(yearSet).sort((a, b) => a - b);
-        const scholarNames = Array.from(new Set(allPubs.map(pub => pub.scholarName)));
+        const scholarNames = scholars.map(s => s.name);
 
         return years.map(year => {
             const yearPubs = allPubs.filter(pub => pub.year === year);
-            const countsByScholar = Object.fromEntries(
-                scholarNames.map(name => [
-                    name,
-                    yearPubs.filter(pub => pub.scholarName === name).length
-                ])
-            );
+            const yearData: any = { year };
             
-            return {
-                year,
-                ...countsByScholar
-            };
+            scholarNames.forEach(scholarName => {
+                const scholarPubsThisYear = yearPubs.filter(pub => pub.scholarName === scholarName);
+                yearData[scholarName] = scholarPubsThisYear.length;
+            });
+            
+            return yearData;
         });
-    }, [loadedScholars, scholars, group1ScholarCount]);
+        */
+    }, [scholars, group1ScholarCount]);
 
     const getScholarColor = (scholar: Scholar, index: number): string => {
         return index < group1ScholarCount ? GROUP_COLORS.group1 : GROUP_COLORS.group2;
@@ -178,6 +306,7 @@ const PublicationTrendsChart = ({ scholars, group1ScholarCount: propGroup1Count 
         }));
     };
 
+    // Since we're using hardcoded data for demo, no auth/loading needed
     if (!scholars.length) {
         return (
             <Card className="w-full">
@@ -187,36 +316,6 @@ const PublicationTrendsChart = ({ scholars, group1ScholarCount: propGroup1Count 
                 <CardContent>
                     <div className="h-96 w-full flex items-center justify-center text-gray-500">
                         No scholars selected
-                    </div>
-                </CardContent>
-            </Card>
-        );
-    }
-
-    if (isLoading) {
-        return (
-            <Card className="w-full">
-                <CardHeader>
-                    <CardTitle>Publication Trends Over Time</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="h-96 w-full flex items-center justify-center text-gray-500">
-                        Loading publication data...
-                    </div>
-                </CardContent>
-            </Card>
-        );
-    }
-
-    if (error) {
-        return (
-            <Card className="w-full">
-                <CardHeader>
-                    <CardTitle>Publication Trends Over Time</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="h-96 w-full flex items-center justify-center text-red-500">
-                        {error}
                     </div>
                 </CardContent>
             </Card>

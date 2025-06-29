@@ -3,8 +3,6 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { Scholar, PubmedPub, Grant } from '@/lib/types'
-import { PalantirPublication, FetchOptions } from '@/components/palantir/types'
-import { fetchPublicationsFromPalantir } from '@/components/palantir/palantirPublications'
 import { Card, CardContent} from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { CollapsibleGrants } from '@/components/grants';

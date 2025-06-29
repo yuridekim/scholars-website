@@ -20,6 +20,7 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge";
+import { useFoundryAuth } from '@/hooks/useFoundryAuth';
 
 
 type FilterType = 'name' | 'affiliation' | 'emailDomain' | 'interests';
@@ -39,6 +40,7 @@ type ScholarMatch = {
 };
 
 export default function ComparativeAnalysisPage() {
+    const auth = useFoundryAuth();
     const [scholars, setScholars] = useState<Scholar[]>([]);
     const [loading, setLoading] = useState(true);
     const [group1Filters, setGroup1Filters] = useState<Filter[]>([]);
@@ -70,9 +72,36 @@ export default function ComparativeAnalysisPage() {
     useEffect(() => {
         const fetchScholars = async () => {
             try {
-                const response = await fetch('/api/scholars');
-                if (!response.ok) throw new Error('Failed to fetch scholars');
+                if (!auth?.accessToken) {
+                    console.log('No access token available, waiting for auth...');
+                    return;
+                }
+
+                console.log('Fetching scholars with token:', auth.accessToken.substring(0, 10) + '...');
+
+                const response = await fetch('/api/scholars', {
+                    headers: {
+                        'Authorization': `Bearer ${auth.accessToken}`
+                    }
+                });
+                
+                console.log('Response status:', response.status);
+                console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Error response body:', errorText);
+                    let errorData;
+                    try {
+                        errorData = JSON.parse(errorText);
+                    } catch {
+                        errorData = { error: errorText };
+                    }
+                    throw new Error(errorData.error || `HTTP ${response.status}: ${errorText}`);
+                }
+                
                 const data = await response.json();
+                console.log('Successfully fetched scholars:', data.length);
                 setScholars(data);
             } catch (error) {
                 console.error('Error fetching scholars:', error);
@@ -82,7 +111,7 @@ export default function ComparativeAnalysisPage() {
         };
 
         fetchScholars();
-    }, []);
+    }, [auth?.accessToken]);
 
     const getFilteredScholars = useCallback((filters: Filter[], allScholars: Scholar[]): Scholar[] => {
         console.log('getFilteredScholars executing with:', { filters, allScholars });
@@ -398,10 +427,11 @@ export default function ComparativeAnalysisPage() {
         matchesProcessed
     ]);
 
-
-    if (loading) {
+    if (!auth || loading) {
         return <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
-            <div className="text-xl">Loading scholars...</div>
+            <div className="text-xl">
+                {!auth ? 'Authenticating...' : 'Loading scholars...'}
+            </div>
         </div>;
     }
 
